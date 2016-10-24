@@ -17,7 +17,7 @@
 #include <pcl/conversions.h>
 #include <pcl_ros/transforms.h>
 
-#include "initial_surface_view_evaluation/ConvertCloudToOctree.h"
+#include "initial_surface_view_evaluation/ConvertCloudToOctomap.h"
 
 using namespace std;
 using namespace octomap;
@@ -61,8 +61,8 @@ octomap_msgs::Octomap convert_pcd_to_octomap(PointCloud2& input_cloud)
 }
 
 bool convert_pcd_to_octomap_cb(
-initial_surface_view_evaluation::ConvertCloudToOctree::Request &req, // phew! what a mouthful!
-initial_surface_view_evaluation::ConvertCloudToOctree::Response &res)
+initial_surface_view_evaluation::ConvertCloudToOctomap::Request &req, // phew! what a mouthful!
+initial_surface_view_evaluation::ConvertCloudToOctomap::Response &res)
 {
   octomap_msgs::Octomap out = convert_pcd_to_octomap(req.cloud);
   res.octomap = out;

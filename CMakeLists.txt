@@ -111,7 +111,7 @@ generate_messages(
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES initial_surface_view_evaluation
-  CATKIN_DEPENDS message_runtime
+  CATKIN_DEPENDS message_runtime semantic_map semantic_map_publisher
 #  DEPENDS system_lib
 )
 
