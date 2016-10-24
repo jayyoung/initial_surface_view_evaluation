@@ -1,0 +1,3 @@
+sensor_msgs/PointCloud2 cloud
+---
+octomap_msgs/Octomap octomap
