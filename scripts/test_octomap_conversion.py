@@ -13,6 +13,15 @@ if __name__ == '__main__':
     #print("got it")
 
     # callback chain to deal with storing *objects*
-    print("waiting for service")
-    get_octomap = rospy.ServiceProxy('SemanticMapPublisher/ObservationOctomapService',ObservationOctomapService)
+    print("waiting for service")    
+    get_octomap = rospy.ServiceProxy('/semantic_map_publisher/SemanticMapPublisher/ObservationOctomapService',ObservationOctomapService)
     print("done")
+
+    targ = "WayPoint3"
+    print("asking for latest obs at:" + targ) 
+    r = get_octomap(targ,0.05)
+    print(r.octomap.header)
+    print(r.octomap.id)
+    print(r.octomap.resolution)
+    print(r.octomap.data)
+    print("got it!")
