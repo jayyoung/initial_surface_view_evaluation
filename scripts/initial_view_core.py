@@ -25,7 +25,7 @@ class InitialViewEvaluationCore():
         self.ptu_gazer_controller = PTUGazeController()
         self.marker_publisher = rospy.Publisher("/semantic_map_publisher/centroid", Marker)
         self.z_cutoff = 1
-        self.obs_resolution = 0.01
+        self.obs_resolution = 0.05
 
     def do_task(self,waypoint):
         rospy.loginfo("-- Executing initial view evaluation task at waypoint: " + waypoint)
@@ -73,6 +73,16 @@ class InitialViewEvaluationCore():
         pt_s.point.y = sy
         pt_s.point.z = sz
         self.ptu_gazer_controller.look_at_map_point(pt_s)
+        self.do_view_sweep()
+
+    def do_view_sweep(self):
+        self.ptu_gazer_controller.pan_ptu_relative(45)
+        rospy.sleep(1)
+        self.ptu_gazer_controller.pan_ptu_relative(-45)
+        rospy.sleep(1)
+        self.ptu_gazer_controller.pan_ptu_relative(-45)
+        rospy.sleep(1)
+        self.ptu_gazer_controller.reset_gaze()
 
     def get_filtered_obs_from_wp(self,waypoint):
         rospy.loginfo("asking for latest obs at:" + waypoint)

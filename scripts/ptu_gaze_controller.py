@@ -26,11 +26,23 @@ class PTUGazeController:
             ptuClient.send_goal(goal)
             ptuClient.wait_for_result()
             rospy.loginfo("Done")
-        # takes in a pointstamped
+
+        def pan_ptu_relative(self,pan):
+            ptuClient = actionlib.SimpleActionClient('SetPTUState',scitos_ptu.msg.PtuGotoAction)
+            ptuClient.wait_for_server()
+            cur_ptu_state = rospy.wait_for_message("/ptu/state",  JointState, timeout=10)
+            goal = scitos_ptu.msg.PtuGotoGoal()
+            goal.tilt = math.degrees(cur_ptu_state.position[1])
+            #goal.tilt_vel = 1
+            goal.pan = math.degrees(cur_ptu_state.position[0])+pan
+            #goal.pan_vel = 0.1
+            ptuClient.send_goal(goal)
+            ptuClient.wait_for_result()
+            rospy.loginfo("done")
+
+
         def look_at_map_point(self,point):
-
             self.reset_gaze()
-
             rospy.loginfo("looking at: ")
             rospy.loginfo(str(point.point))
             pan,tilt = self.transform_target_point(point)
@@ -93,3 +105,9 @@ if __name__ == '__main__':
     p = PTUGazeController()
     #p.look_at_map_point(pt_s)
     p.reset_gaze()
+    p.pan_ptu_relative(45)
+    rospy.sleep(3)
+    p.pan_ptu_relative(45)
+    rospy.sleep(3)
+    p.pan_ptu_relative(45)
+    rospy.sleep(3)
