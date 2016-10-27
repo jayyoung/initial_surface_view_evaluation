@@ -22,6 +22,7 @@
 
 #include "initial_surface_view_evaluation/ConvertCloudToOctomap.h"
 #include "initial_surface_view_evaluation/ExtractNormalsFromOctomap.h"
+
 #include "semantic_map_publisher/ObservationOctomapService.h"
 #include "surface_based_object_learning/PointInROI.h"
 
@@ -41,7 +42,7 @@ octomap_msgs::Octomap convert_pcd_to_octomap(PointCloud2& input_cloud)
   // when i was your age, we used strongly typed languages
   // "what's a type, grandad?"
   // well, let me show you
-  float octree_resolution = 0.02f;
+  float octree_resolution = 0.05f;
 //  double octree_max_range = -1;
 
   pcl::PCLPointCloud2 pcl_pc2;
@@ -133,6 +134,11 @@ std::vector<geometry_msgs::Point> extract_normals_from_octomap(octomap_msgs::Oct
               if ( angle < ANGLE_MAX_DIFF)
                 {
                   sp_tree->updateNode(coord,true);
+                  geometry_msgs::Point pt;
+                  pt.x = coord.x();
+                  pt.y = coord.y();
+                  pt.z = coord.z();
+                  output_points.push_back(pt);
                 }
             }
         }
@@ -141,7 +147,7 @@ std::vector<geometry_msgs::Point> extract_normals_from_octomap(octomap_msgs::Oct
           free++;
         }
     }
-  sp_tree->writeBinary("normals.bt");
+  sp_tree->writeBinary("post_alg.bt");
   ROS_INFO("Extracted map size: %i (%i free, and %i occupied leaf nodes were discarded)", supported, free, occupied - supported);
   return output_points;
 }

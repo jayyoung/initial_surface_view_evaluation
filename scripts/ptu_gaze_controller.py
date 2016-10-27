@@ -91,4 +91,5 @@ if __name__ == '__main__':
     #pt_s.point.y = 1.74
     #pt_s.point.z = 4.19
     p = PTUGazeController()
-    p.look_at_map_point(pt_s)
+    #p.look_at_map_point(pt_s)
+    p.reset_gaze()
