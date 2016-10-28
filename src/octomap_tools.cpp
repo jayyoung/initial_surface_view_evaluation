@@ -42,7 +42,7 @@ octomap_msgs::Octomap convert_pcd_to_octomap(PointCloud2& input_cloud)
   // when i was your age, we used strongly typed languages
   // "what's a type, grandad?"
   // well, let me show you
-  float octree_resolution = 0.05f;
+  float octree_resolution = 0.03f;
 //  double octree_max_range = -1;
 
   pcl::PCLPointCloud2 pcl_pc2;

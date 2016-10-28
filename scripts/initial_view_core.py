@@ -13,6 +13,9 @@ import numpy as np
 from visualization_msgs.msg import Marker
 from geometry_msgs.msg import PointStamped, Pose, Transform, TransformStamped, Vector3, Quaternion
 from ptu_gaze_controller import *
+from mongodb_store.message_store import MessageStoreProxy
+import uuid
+from initial_surface_view_evaluation.msg import *
 
 class InitialViewEvaluationCore():
     def __init__(self):
@@ -23,15 +26,34 @@ class InitialViewEvaluationCore():
         self.roi_srv = rospy.ServiceProxy('/check_point_set_in_soma_roi',PointSetInROI)
         rospy.loginfo("done")
         self.ptu_gazer_controller = PTUGazeController()
-        self.marker_publisher = rospy.Publisher("/semantic_map_publisher/centroid", Marker)
+        self.marker_publisher = rospy.Publisher("/initial_surface_view_evaluation/centroid", Marker)
         self.z_cutoff = 1
-        self.obs_resolution = 0.05
+        self.obs_resolution = 0.03
+        self.initial_view_store = MessageStoreProxy(database="initial_surface_views", collection="logged_views")
+
+
+    def log_view(self,data):
+        rospy.loginfo("logging initial view")
+        waypoint,filtered_cloud,filtered_octomap,normals,segmented_objects_octomap = data
+        lv = LoggedInitialView()
+        lv.timestamp = int(rospy.Time.now().to_sec())
+        lv.meta_data = "{}"
+        lv.id = str(uuid.uuid4())
+        lv.waypoint = waypoint
+        lv.metaroom_filtered_cloud = filtered_cloud
+        lv.metaroom_filtered_octomap = filtered_octomap
+        lv.up_facing_points = normals
+        
+        #lv.segmented_objects_octomap = segmented_objects_octomap
+
+        self.initial_view_store.insert_named(lv.id,lv)
 
     def do_task(self,waypoint):
         rospy.loginfo("-- Executing initial view evaluation task at waypoint: " + waypoint)
         obs = self.get_filtered_obs_from_wp(waypoint)
         octo_obs = self.convert_cloud_to_octomap(obs)
         normals = self.get_normals_from_octomap(octo_obs)
+
         rospy.loginfo("got: " + str(len(normals)) + " up-facing normal points")
         sx = 0
         sy = 0
@@ -65,6 +87,7 @@ class InitialViewEvaluationCore():
             fp.append([p.x,p.y,p.z,255])
         n_cloud = pc2.create_cloud(obs.header, obs.fields, fp)
         python_pcd.write_pcd("nrmls.pcd",n_cloud,overwrite=True)
+        self.log_view([waypoint,obs,octo_obs,n_cloud,None])
 
         pt_s = PointStamped()
         pt_s.header.frame_id = "/map"
@@ -74,6 +97,14 @@ class InitialViewEvaluationCore():
         pt_s.point.z = sz
         self.ptu_gazer_controller.look_at_map_point(pt_s)
         self.do_view_sweep()
+
+
+    def process_sweep_view(self):
+        rospy.loginfo("- taking view")
+        # segment the scene
+        # run it through noise filters? what to do here?
+        # return the segmented objects as a pc2
+
 
     def do_view_sweep(self):
         self.ptu_gazer_controller.pan_ptu_relative(45)
