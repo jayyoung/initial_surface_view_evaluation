@@ -14,8 +14,9 @@ import math
 
 class PTUGazeController:
 
-        def __init__(self):
+        def __init__(self,ptu_speed):
             print("-- PTU gaze controller created")
+	    self.ptu_speed = ptu_speed
 
         def reset_gaze(self):
             rospy.loginfo("Trying to reset gaze")
@@ -33,9 +34,9 @@ class PTUGazeController:
             cur_ptu_state = rospy.wait_for_message("/ptu/state",  JointState, timeout=10)
             goal = scitos_ptu.msg.PtuGotoGoal()
             goal.tilt = math.degrees(cur_ptu_state.position[1])
-            #goal.tilt_vel = 1
+            goal.tilt_vel = self.ptu_speed
             goal.pan = math.degrees(cur_ptu_state.position[0])+pan
-            #goal.pan_vel = 0.1
+            goal.pan_vel = self.ptu_speed
             ptuClient.send_goal(goal)
             ptuClient.wait_for_result()
             rospy.loginfo("done")
@@ -51,9 +52,9 @@ class PTUGazeController:
             ptuClient.wait_for_server()
             goal = scitos_ptu.msg.PtuGotoGoal()
             goal.tilt = tilt
-            #goal.tilt_vel = 1
+            goal.tilt_vel = self.ptu_speed
             goal.pan = pan
-            #goal.pan_vel = 0.1
+            goal.pan_vel = self.ptu_speed
             ptuClient.send_goal(goal)
             ptuClient.wait_for_result()
             rospy.loginfo("done")
@@ -89,9 +90,9 @@ if __name__ == '__main__':
     pt_s.header.frame_id = "/map"
 
     # behind robot
-    pt_s.point.x = 5.22
-    pt_s.point.y = 2.98
-    pt_s.point.z = 0.7515
+    pt_s.point.x = 5.1
+    pt_s.point.y = 3.6
+    pt_s.point.z = 3.48
 
     # in front of robot
     #pt_s.point.x = 9.09
@@ -102,9 +103,11 @@ if __name__ == '__main__':
     #pt_s.point.x = 7.38
     #pt_s.point.y = 1.74
     #pt_s.point.z = 4.19
-    p = PTUGazeController()
-    #p.look_at_map_point(pt_s)
+    p = PTUGazeController(10)
     p.reset_gaze()
+    rospy.sleep(3)
+    p.look_at_map_point(pt_s)
+    rospy.sleep(3)
     p.pan_ptu_relative(45)
     rospy.sleep(3)
     p.pan_ptu_relative(45)
