@@ -36,6 +36,7 @@ class PTUGazeController:
             goal.tilt = math.degrees(cur_ptu_state.position[1])
             goal.tilt_vel = self.ptu_speed
             goal.pan = math.degrees(cur_ptu_state.position[0])+pan
+            print("sending pan goal: " + str(goal.pan))
             goal.pan_vel = self.ptu_speed
             ptuClient.send_goal(goal)
             ptuClient.wait_for_result()

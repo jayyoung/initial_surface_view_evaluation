@@ -130,31 +130,35 @@ class InitialViewEvaluationCore():
         pt_s.point.x = sx
         pt_s.point.y = sy
         pt_s.point.z = sz
-        self.ptu_gazer_controller.look_at_map_point(pt_s)
-        objects = self.do_view_sweep()
+        objects = self.do_view_sweep_from_point(pt_s)
         object_octomap = self.convert_cloud_to_octomap(objects)
 
 
 
     # includes a bunch of sleeps just to make super extra sure we don't get any camera blur due to all the movement
-    def do_view_sweep(self):
+    def do_view_sweep_from_point(self,point):
+
         rospy.loginfo("doing mini-sweep")
+        self.ptu_gazer_controller.reset_gaze()
+        rospy.sleep(0.5)
+        self.ptu_gazer_controller.look_at_map_point(point)
         sweep_degree = 30
+        rospy.sleep(0.5)
         self.ptu_gazer_controller.pan_ptu_relative(sweep_degree)
         rospy.sleep(0.5)
-        cl = rospy.wait_for_message("/head_xtion/depth/points",PointCloud2,timeout=10.0)
+        cl = rospy.wait_for_message("/head_xtion/depth_registered/points",PointCloud2,timeout=10.0)
         one = self.transform_cloud_to_map(self.segmentation.segment(cl))
         python_pcd.write_pcd("one.pcd",one,overwrite=True)
         rospy.sleep(0.5)
         self.ptu_gazer_controller.pan_ptu_relative(-sweep_degree)
         rospy.sleep(0.5)
-        cl = rospy.wait_for_message("/head_xtion/depth/points",PointCloud2,timeout=10.0)
+        cl = rospy.wait_for_message("/head_xtion/depth_registered/points",PointCloud2,timeout=10.0)
         two = self.transform_cloud_to_map(self.segmentation.segment(cl))
         python_pcd.write_pcd("two.pcd",two,overwrite=True)
         rospy.sleep(0.5)
         self.ptu_gazer_controller.pan_ptu_relative(-sweep_degree)
         rospy.sleep(0.5)
-        cl = rospy.wait_for_message("/head_xtion/depth/points",PointCloud2,timeout=10.0)
+        cl = rospy.wait_for_message("/head_xtion/depth_registered/points",PointCloud2,timeout=10.0)
         three = self.transform_cloud_to_map(self.segmentation.segment(cl))
         python_pcd.write_pcd("three.pcd",three,overwrite=True)
         rospy.sleep(0.5)
@@ -178,7 +182,7 @@ class InitialViewEvaluationCore():
             pp.x = p_in[0]
             pp.y = p_in[1]
             pp.z = p_in[2]
-            if(pp.z > self.z_cutoff and pp.z < 1.7):
+            if(pp.z > self.z_cutoff and pp.z < 1.5):
                 point_set.append(pp)
                 raw_point_set.append(p_in)
 
@@ -221,9 +225,10 @@ class InitialViewEvaluationCore():
         points_out = []
         for p_in in pc2.read_points(cloud,field_names=["x","y","z","rgb"]):
             p_out = t_kdl * PyKDL.Vector(p_in[0], p_in[1], p_in[2])
-            points_out.append([p_out[0],p_out[1],p_out[2]])
+            points_out.append([p_out[0],p_out[1],p_out[2],p_in[3]])
 
         res = pc2.create_cloud(cloud.header, cloud.fields, points_out)
+
         return res
 
     def transform_to_kdl(self,t):
@@ -240,3 +245,4 @@ if __name__ == '__main__':
     #s = SegmentationWrapper()
     #cl = rospy.wait_for_message("/head_xtion/depth/points",PointCloud2,timeout=10.0)
     #s.segment(cl)
+    rospy.spin()

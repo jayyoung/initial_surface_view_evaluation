@@ -38,13 +38,13 @@ using namespace sensor_msgs;
 octomap_msgs::Octomap convert_pcd_to_octomap(std::vector<sensor_msgs::PointCloud2> input_clouds)
 {
   ROS_INFO("Converting PointCloud to Octree");
-
+  ros::NodeHandle n;
   // when i was your age, we used strongly typed languages
   // "what's a type, grandad?"
   // well, let me show you
   float octree_resolution = 0.02f;
   octomap::OcTree map(octree_resolution);
-
+  ros::Publisher octomap_pub = n.advertise<octomap_msgs::Octomap>("/initial_surface_view_evaluation/converted_octomaps", 1000);
 
   for(std::vector<sensor_msgs::PointCloud2>::iterator iter = input_clouds.begin(), end = input_clouds.end(); iter != end; ++iter) {
       sensor_msgs::PointCloud2 input_cloud = *iter;
@@ -87,7 +87,9 @@ octomap_msgs::Octomap convert_pcd_to_octomap(std::vector<sensor_msgs::PointCloud
   map.writeBinary("output.bt");
   ROS_INFO("- Converting to ROS msg");
   octomap_msgs::Octomap octo_msg;
+  octo_msg.header.frame_id = "map";
   octomap_msgs::fullMapToMsg(map,octo_msg);
+  octomap_pub.publish(octo_msg);
   ROS_INFO("- Done! Returning");
   return octo_msg;
 }
