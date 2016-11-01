@@ -8,6 +8,8 @@
 #include <nav_msgs/OccupancyGrid.h>
 #include <sensor_msgs/PointCloud2.h>
 #include <sensor_msgs/point_cloud_conversion.h>
+#include <pcl/filters/radius_outlier_removal.h>
+#include <pcl/filters/conditional_removal.h>
 
 #include <octomap_ros/conversions.h>
 #include <octomap_msgs/Octomap.h>
@@ -42,7 +44,7 @@ octomap_msgs::Octomap convert_pcd_to_octomap(std::vector<sensor_msgs::PointCloud
   // when i was your age, we used strongly typed languages
   // "what's a type, grandad?"
   // well, let me show you
-  float octree_resolution = 0.02f;
+  float octree_resolution = 0.03f;
   octomap::OcTree map(octree_resolution);
   ros::Publisher octomap_pub = n.advertise<octomap_msgs::Octomap>("/initial_surface_view_evaluation/converted_octomaps", 1000);
 
@@ -54,16 +56,29 @@ octomap_msgs::Octomap convert_pcd_to_octomap(std::vector<sensor_msgs::PointCloud
       pcl::PointCloud<pcl::PointXYZ>::Ptr temp_cloud(new pcl::PointCloud<pcl::PointXYZ>);
       pcl::fromPCLPointCloud2(pcl_pc2,*temp_cloud);
 
+      if(temp_cloud->points.size() == 0) {
+        ROS_INFO("Skipping empty point cloud");
+        continue;
+      }
+
       pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_filtered_ptr (new pcl::PointCloud<pcl::PointXYZ>);
+      pcl::RadiusOutlierRemoval<pcl::PointXYZ> outrem;
+      outrem.setInputCloud(temp_cloud);
+      outrem.setRadiusSearch(0.8);
+      outrem.setMinNeighborsInRadius (5);
+      outrem.setNegative(false);
+      outrem.filter (*cloud_filtered_ptr);
+      /*
       pcl::StatisticalOutlierRemoval<pcl::PointXYZ> f;
       f.setInputCloud (temp_cloud);
-      f.setMeanK (5);
+      f.setMeanK (50);
       f.setStddevMulThresh (1.0);
       f.setNegative(false);
       f.filter(*cloud_filtered_ptr);
+      */
 
       pcl::PCDWriter writer;
-      //writer.write<pcl::PointXYZ> ("inliers.pcd", *cloud_filtered_ptr, false);
+      writer.write<pcl::PointXYZ> ("filtered.pcd", *cloud_filtered_ptr, false);
       temp_cloud = cloud_filtered_ptr;
 
       ROS_INFO("- Computing centroid");

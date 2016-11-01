@@ -1,6 +1,6 @@
 import roslib
 import rospy
-from sensor_msgs.msg import PointCloud2, PointField
+from sensor_msgs.msg import PointCloud2, PointField, Image, CameraInfo
 from semantic_map_publisher.srv import *
 from semantic_map.srv import *
 from octomap_msgs.msg import *
@@ -65,23 +65,22 @@ class InitialViewEvaluationCore():
         rospy.sleep(2)
 
 
-    def log_view(self,data):
+    def log_task(self,data):
         rospy.loginfo("logging initial view")
-        waypoint,filtered_cloud,filtered_octomap,normals,segmented_objects_octomap = data
+        waypoint,filtered_octomap,normals,segmented_objects_octomap,sweep_imgs = data
         lv = LoggedInitialView()
         lv.timestamp = int(rospy.Time.now().to_sec())
         lv.meta_data = "{}"
         lv.id = str(uuid.uuid4())
         lv.waypoint = waypoint
-        lv.metaroom_filtered_cloud = filtered_cloud
+        #lv.metaroom_filtered_cloud = filtered_cloud
         lv.metaroom_filtered_octomap = filtered_octomap
         lv.up_facing_points = normals
-
-        # TODO: add these
-        #lv.segmented_objects_octomap = segmented_objects_octomap
-        #lv.sweep_views =
-
+        lv.segmented_objects_octomap = segmented_objects_octomap
+        #lv.sweep_clouds = sweep_clouds
+        lv.sweep_imgs = sweep_imgs
         self.initial_view_store.insert_named(lv.id,lv)
+        rospy.loginfo("done")
 
     def do_task(self,waypoint):
         rospy.loginfo("-- Executing initial view evaluation task at waypoint: " + waypoint)
@@ -121,8 +120,7 @@ class InitialViewEvaluationCore():
         for p in normals:
             fp.append([p.x,p.y,p.z,255])
         n_cloud = pc2.create_cloud(obs.header, obs.fields, fp)
-        python_pcd.write_pcd("nrmls.pcd",n_cloud,overwrite=True)
-        self.log_view([waypoint,obs,octo_obs,n_cloud,None])
+        #python_pcd.write_pcd("nrmls.pcd",n_cloud,overwrite=True)
 
         pt_s = PointStamped()
         pt_s.header.frame_id = "/map"
@@ -130,8 +128,11 @@ class InitialViewEvaluationCore():
         pt_s.point.x = sx
         pt_s.point.y = sy
         pt_s.point.z = sz
-        objects = self.do_view_sweep_from_point(pt_s)
+        objects,sweep_clouds,sweep_imgs = self.do_view_sweep_from_point(pt_s)
         object_octomap = self.convert_cloud_to_octomap(objects)
+
+        # waypoint,filtered_cloud,filtered_octomap,normals,segmented_objects_octomap,sweep_clouds,sweep_imgs
+        self.log_task([waypoint,octo_obs,n_cloud,object_octomap,sweep_imgs])
 
 
 
@@ -139,6 +140,8 @@ class InitialViewEvaluationCore():
     def do_view_sweep_from_point(self,point):
 
         rospy.loginfo("doing mini-sweep")
+        sweep_clouds = []
+        sweep_imgs = []
         self.ptu_gazer_controller.reset_gaze()
         rospy.sleep(0.5)
         self.ptu_gazer_controller.look_at_map_point(point)
@@ -146,24 +149,34 @@ class InitialViewEvaluationCore():
         rospy.sleep(0.5)
         self.ptu_gazer_controller.pan_ptu_relative(sweep_degree)
         rospy.sleep(0.5)
-        cl = rospy.wait_for_message("/head_xtion/depth_registered/points",PointCloud2,timeout=10.0)
+        cl = rospy.wait_for_message("/head_xtion/depth/points",PointCloud2,timeout=10.0)
+        sweep_clouds.append(cl)
+        im = rospy.wait_for_message("/head_xtion/rgb/image_color",Image,timeout=10.0)
+        sweep_imgs.append(im)
+
         one = self.transform_cloud_to_map(self.segmentation.segment(cl))
         python_pcd.write_pcd("one.pcd",one,overwrite=True)
         rospy.sleep(0.5)
         self.ptu_gazer_controller.pan_ptu_relative(-sweep_degree)
         rospy.sleep(0.5)
-        cl = rospy.wait_for_message("/head_xtion/depth_registered/points",PointCloud2,timeout=10.0)
+        cl = rospy.wait_for_message("/head_xtion/depth/points",PointCloud2,timeout=10.0)
+        sweep_clouds.append(cl)
+        im = rospy.wait_for_message("/head_xtion/rgb/image_color",Image,timeout=10.0)
+        sweep_imgs.append(im)
         two = self.transform_cloud_to_map(self.segmentation.segment(cl))
         python_pcd.write_pcd("two.pcd",two,overwrite=True)
         rospy.sleep(0.5)
         self.ptu_gazer_controller.pan_ptu_relative(-sweep_degree)
         rospy.sleep(0.5)
-        cl = rospy.wait_for_message("/head_xtion/depth_registered/points",PointCloud2,timeout=10.0)
+        cl = rospy.wait_for_message("/head_xtion/depth/points",PointCloud2,timeout=10.0)
+        sweep_clouds.append(cl)
+        im = rospy.wait_for_message("/head_xtion/rgb/image_color",Image,timeout=10.0)
+        sweep_imgs.append(im)
         three = self.transform_cloud_to_map(self.segmentation.segment(cl))
         python_pcd.write_pcd("three.pcd",three,overwrite=True)
         rospy.sleep(0.5)
         self.ptu_gazer_controller.reset_gaze()
-        return [one,two,three]
+        return [one,two,three],sweep_clouds,sweep_imgs
 
     def get_filtered_obs_from_wp(self,waypoint):
         rospy.loginfo("asking for latest obs at:" + waypoint)
@@ -225,7 +238,7 @@ class InitialViewEvaluationCore():
         points_out = []
         for p_in in pc2.read_points(cloud,field_names=["x","y","z","rgb"]):
             p_out = t_kdl * PyKDL.Vector(p_in[0], p_in[1], p_in[2])
-            points_out.append([p_out[0],p_out[1],p_out[2],p_in[3]])
+            points_out.append([p_out[0],p_out[1],p_out[2]])
 
         res = pc2.create_cloud(cloud.header, cloud.fields, points_out)
 

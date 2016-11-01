@@ -42,7 +42,6 @@ class PTUGazeController:
             ptuClient.wait_for_result()
             rospy.loginfo("done")
 
-
         def look_at_map_point(self,point):
             self.reset_gaze()
             rospy.loginfo("looking at: ")
