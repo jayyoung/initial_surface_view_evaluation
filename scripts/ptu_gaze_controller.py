@@ -14,7 +14,7 @@ import math
 
 class PTUGazeController:
 
-        def __init__(self,ptu_speed):
+        def __init__(self,ptu_speed=10):
             print("-- PTU gaze controller created")
 	    self.ptu_speed = ptu_speed
 
@@ -113,4 +113,5 @@ if __name__ == '__main__':
     p.pan_ptu_relative(45)
     rospy.sleep(3)
     p.pan_ptu_relative(45)
+    p.reset_gaze()
     rospy.sleep(3)

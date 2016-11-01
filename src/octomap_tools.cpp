@@ -35,48 +35,56 @@ using namespace sensor_msgs;
 
 #define ANGLE_MAX_DIFF (M_PI / 4)
 
-octomap_msgs::Octomap convert_pcd_to_octomap(PointCloud2& input_cloud)
+octomap_msgs::Octomap convert_pcd_to_octomap(std::vector<sensor_msgs::PointCloud2> input_clouds)
 {
   ROS_INFO("Converting PointCloud to Octree");
 
   // when i was your age, we used strongly typed languages
   // "what's a type, grandad?"
   // well, let me show you
-  float octree_resolution = 0.03f;
-//  double octree_max_range = -1;
-
-  pcl::PCLPointCloud2 pcl_pc2;
-  pcl_conversions::toPCL(input_cloud,pcl_pc2);
-  pcl::PointCloud<pcl::PointXYZ>::Ptr temp_cloud(new pcl::PointCloud<pcl::PointXYZ>);
-  pcl::fromPCLPointCloud2(pcl_pc2,*temp_cloud);
-
-  pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_filtered_ptr (new pcl::PointCloud<pcl::PointXYZ>);
-  pcl::StatisticalOutlierRemoval<pcl::PointXYZ> f;
-  f.setInputCloud (temp_cloud);
-  f.setMeanK (5);
-  f.setStddevMulThresh (1.0);
-  f.setNegative(false);
-  f.filter(*cloud_filtered_ptr);
-
-  pcl::PCDWriter writer;
-  writer.write<pcl::PointXYZ> ("inliers.pcd", *cloud_filtered_ptr, false);
-  temp_cloud = cloud_filtered_ptr;
-
-  ROS_INFO("- Computing centroid");
-  Eigen::Vector4f centroid;
-  pcl::compute3DCentroid(*temp_cloud, centroid);
-  octomap::point3d octo_centroid(centroid[0],centroid[1],centroid[2]);
-
-  ROS_INFO("- Converting to OctoMap");
-  // convert observation cloud to octomap and return it
-  octomap::Pointcloud oct_pc;
-  octomap::pointCloud2ToOctomap(input_cloud, oct_pc);
+  float octree_resolution = 0.02f;
   octomap::OcTree map(octree_resolution);
-  map.insertPointCloud(oct_pc, octo_centroid);
+
+
+  for(std::vector<sensor_msgs::PointCloud2>::iterator iter = input_clouds.begin(), end = input_clouds.end(); iter != end; ++iter) {
+      sensor_msgs::PointCloud2 input_cloud = *iter;
+
+      pcl::PCLPointCloud2 pcl_pc2;
+      pcl_conversions::toPCL(input_cloud,pcl_pc2);
+      pcl::PointCloud<pcl::PointXYZ>::Ptr temp_cloud(new pcl::PointCloud<pcl::PointXYZ>);
+      pcl::fromPCLPointCloud2(pcl_pc2,*temp_cloud);
+
+      pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_filtered_ptr (new pcl::PointCloud<pcl::PointXYZ>);
+      pcl::StatisticalOutlierRemoval<pcl::PointXYZ> f;
+      f.setInputCloud (temp_cloud);
+      f.setMeanK (5);
+      f.setStddevMulThresh (1.0);
+      f.setNegative(false);
+      f.filter(*cloud_filtered_ptr);
+
+      pcl::PCDWriter writer;
+      //writer.write<pcl::PointXYZ> ("inliers.pcd", *cloud_filtered_ptr, false);
+      temp_cloud = cloud_filtered_ptr;
+
+      ROS_INFO("- Computing centroid");
+      Eigen::Vector4f centroid;
+      pcl::compute3DCentroid(*temp_cloud, centroid);
+
+      // uh oh, should this be robot_pose?
+      octomap::point3d octo_centroid(centroid[0],centroid[1],centroid[2]);
+
+      ROS_INFO("- Converting to OctoMap");
+      // convert observation cloud to octomap and return it
+      octomap::Pointcloud oct_pc;
+      octomap::pointCloud2ToOctomap(input_cloud, oct_pc);
+
+      map.insertPointCloud(oct_pc, octo_centroid);
+
+  }
+
 
   ROS_INFO("- Writing to file");
-  map.writeBinary("test.bt");
-
+  map.writeBinary("output.bt");
   ROS_INFO("- Converting to ROS msg");
   octomap_msgs::Octomap octo_msg;
   octomap_msgs::fullMapToMsg(map,octo_msg);
@@ -147,7 +155,7 @@ std::vector<geometry_msgs::Point> extract_normals_from_octomap(octomap_msgs::Oct
           free++;
         }
     }
-  sp_tree->writeBinary("post_alg.bt");
+  //sp_tree->writeBinary("post_alg.bt");
   ROS_INFO("Extracted map size: %i (%i free, and %i occupied leaf nodes were discarded)", supported, free, occupied - supported);
   return output_points;
 }
@@ -167,7 +175,7 @@ bool convert_pcd_to_octomap_cb(
 initial_surface_view_evaluation::ConvertCloudToOctomap::Request &req, // phew! what a mouthful!
 initial_surface_view_evaluation::ConvertCloudToOctomap::Response &res)
 {
-  octomap_msgs::Octomap out = convert_pcd_to_octomap(req.cloud);
+  octomap_msgs::Octomap out = convert_pcd_to_octomap(req.clouds);
   res.octomap = out;
   return true;
 }

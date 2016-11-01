@@ -13,11 +13,11 @@ if __name__ == '__main__':
 
     # callback chain to deal with storing *objects*
     print("waiting for service")
-    send_pcd = rospy.ServiceProxy('/surface_based_object_learning/convert_pcd_to_octomap',ConvertCloudToOctree)
+    send_pcd = rospy.ServiceProxy('/surface_based_object_learning/convert_pcd_to_octomap',ConvertCloudToOctomap)
     print("done")
 
     cloud = rospy.wait_for_message("/head_xtion/depth_registered/points",PointCloud2)
-    out = send_pcd(cloud)
+    out = send_pcd([cloud])
 
     print("done")
 

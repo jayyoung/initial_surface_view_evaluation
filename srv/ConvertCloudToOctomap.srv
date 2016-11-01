@@ -1,3 +1,3 @@
-sensor_msgs/PointCloud2 cloud
+sensor_msgs/PointCloud2[] clouds   # can just be a single cloud or multiple clouds, if multiple they will be combined into the same octomap
 ---
 octomap_msgs/Octomap octomap
