@@ -11,7 +11,7 @@ import tf2_ros
 import tf, tf2_msgs.msg
 from tf import TransformListener
 from itertools import compress
-import python_pcd
+#import python_pcd
 import numpy as np
 from visualization_msgs.msg import Marker
 from geometry_msgs.msg import PointStamped, Pose, Transform, TransformStamped, Vector3, Quaternion
@@ -21,7 +21,7 @@ import uuid
 from initial_surface_view_evaluation.msg import *
 from segmentation_srv_definitions.srv import * # vienna seg
 import PyKDL
-
+import actionlib
 
 class SegmentationWrapper():
     def __init__(self):
@@ -49,6 +49,7 @@ class SegmentationWrapper():
 
 class InitialViewEvaluationCore():
     def __init__(self):
+        rospy.init_node('initial_surface_view_evaluation_actionserver', anonymous = False)
         rospy.loginfo("waiting for services")
         self.conv_octomap = rospy.ServiceProxy('/surface_based_object_learning/convert_pcd_to_octomap',ConvertCloudToOctomap)
         self.get_normals = rospy.ServiceProxy('/surface_based_object_learning/extract_normals_from_octomap',ExtractNormalsFromOctomap)
@@ -63,6 +64,11 @@ class InitialViewEvaluationCore():
         self.segmentation = SegmentationWrapper()
         self.transformation_store = TransformListener()
         rospy.sleep(2)
+        self.action_server = actionlib.SimpleActionServer("/surface_based_object_learning/evaluate_surface", EvaluateSurfaceAction,
+        execute_cb=self.do_task_cb, auto_start = False)
+        self.action_server.start()
+        rospy.loginfo("action server set up")
+        rospy.spin()
 
 
     def log_task(self,data):
@@ -81,6 +87,12 @@ class InitialViewEvaluationCore():
         lv.sweep_imgs = sweep_imgs
         self.initial_view_store.insert_named(lv.id,lv)
         rospy.loginfo("done")
+
+    def do_task_cb(self,action):
+        octo = self.do_task(action.waypoint_id)
+        self.action_server.set_succeeded()
+        return octo
+
 
     def do_task(self,waypoint):
         rospy.loginfo("-- Executing initial view evaluation task at waypoint: " + waypoint)
@@ -155,7 +167,7 @@ class InitialViewEvaluationCore():
         sweep_imgs.append(im)
 
         one = self.transform_cloud_to_map(self.segmentation.segment(cl))
-        python_pcd.write_pcd("one.pcd",one,overwrite=True)
+        #python_pcd.write_pcd("one.pcd",one,overwrite=True)
         rospy.sleep(0.5)
         self.ptu_gazer_controller.pan_ptu_relative(-sweep_degree)
         rospy.sleep(0.5)
@@ -164,7 +176,7 @@ class InitialViewEvaluationCore():
         im = rospy.wait_for_message("/head_xtion/rgb/image_color",Image,timeout=10.0)
         sweep_imgs.append(im)
         two = self.transform_cloud_to_map(self.segmentation.segment(cl))
-        python_pcd.write_pcd("two.pcd",two,overwrite=True)
+        #python_pcd.write_pcd("two.pcd",two,overwrite=True)
         rospy.sleep(0.5)
         self.ptu_gazer_controller.pan_ptu_relative(-sweep_degree)
         rospy.sleep(0.5)
@@ -173,7 +185,7 @@ class InitialViewEvaluationCore():
         im = rospy.wait_for_message("/head_xtion/rgb/image_color",Image,timeout=10.0)
         sweep_imgs.append(im)
         three = self.transform_cloud_to_map(self.segmentation.segment(cl))
-        python_pcd.write_pcd("three.pcd",three,overwrite=True)
+        #python_pcd.write_pcd("three.pcd",three,overwrite=True)
         rospy.sleep(0.5)
         self.ptu_gazer_controller.reset_gaze()
         return [one,two,three],sweep_clouds,sweep_imgs
@@ -252,10 +264,10 @@ class InitialViewEvaluationCore():
                                          t.transform.translation.z))
 
 if __name__ == '__main__':
-    rospy.init_node('sm_test', anonymous = False)
+    #rospy.init_node('sm_test', anonymous = False)
     i = InitialViewEvaluationCore()
-    i.do_task("WayPoint1")
+    #i.do_task("WayPoint1")
     #s = SegmentationWrapper()
     #cl = rospy.wait_for_message("/head_xtion/depth/points",PointCloud2,timeout=10.0)
     #s.segment(cl)
-    rospy.spin()
+    #rospy.spin()

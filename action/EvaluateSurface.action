@@ -1,0 +1,8 @@
+# Define the goal
+string waypoint_id  # which waypoint this action is being performed at
+---
+# Define the result
+octomap_msgs/Octomap octomap # octomap of the objects that have been detected
+---
+# Define a feedback message
+int32 views_completed # likely no one even cares about this though
