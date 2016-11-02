@@ -1,0 +1,6 @@
+<launch>
+
+	<node name="view_eval_actionserver" pkg="initial_surface_view_evaluation" respawn="true" type="initial_view_core.py" output="screen"/>
+	<node name="view_eval_octotools" pkg="initial_surface_view_evaluation" respawn="true" type="octomap_tools" output="screen"/>
+
+</launch>

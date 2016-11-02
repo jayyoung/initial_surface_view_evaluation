@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 import roslib
 import rospy
 from sensor_msgs.msg import PointCloud2, PointField, Image, CameraInfo
@@ -25,12 +26,12 @@ import actionlib
 
 class SegmentationWrapper():
     def __init__(self):
-        rospy.loginfo("getting segmentation srv")
+        rospy.loginfo("VIEW EVAL: getting segmentation srv")
         self.segmentation_srv = rospy.ServiceProxy("/pcl_segmentation_service/pcl_segmentation", segment, 10)
-        rospy.loginfo("done")
+        rospy.loginfo("VIEW EVAL: done")
 
     def segment(self,input_cloud):
-        rospy.loginfo("segmenting")
+        rospy.loginfo("VIEW EVAL: segmenting")
         # segment scene
         output = self.segmentation_srv(cloud=input_cloud)
         clusters = output.clusters_indices
@@ -42,21 +43,21 @@ class SegmentationWrapper():
             for i in c.data:
                 aggregated_cloud.append(int_data[i])
         rgb = pc2.create_cloud(input_cloud.header,input_cloud.fields,aggregated_cloud)
-        rospy.loginfo("added " + str(len(clusters)) + " clusters")
+        rospy.loginfo("VIEW EVAL: added " + str(len(clusters)) + " clusters")
         #python_pcd.write_pcd("view.pcd",rgb,overwrite=True)
-        rospy.loginfo("done")
+        rospy.loginfo("VIEW EVAL: done")
         return rgb
 
 class InitialViewEvaluationCore():
     def __init__(self):
         rospy.init_node('initial_surface_view_evaluation_actionserver', anonymous = False)
-        rospy.loginfo("waiting for services")
+        rospy.loginfo("VIEW EVAL: waiting for services")
         self.conv_octomap = rospy.ServiceProxy('/surface_based_object_learning/convert_pcd_to_octomap',ConvertCloudToOctomap)
         self.get_normals = rospy.ServiceProxy('/surface_based_object_learning/extract_normals_from_octomap',ExtractNormalsFromOctomap)
         self.get_obs = rospy.ServiceProxy('/semantic_map_publisher/SemanticMapPublisher/ObservationService',ObservationService)
         self.roi_srv = rospy.ServiceProxy('/check_point_set_in_soma_roi',PointSetInROI)
         #self.overlap_srv = rospy.ServiceProxy('/surface_based_object_learning/calculate_octree_overlap',CalculateOctreeOverlap)
-        rospy.loginfo("done")
+        rospy.loginfo("VIEW EVAL: done")
         self.ptu_gazer_controller = PTUGazeController()
         self.marker_publisher = rospy.Publisher("/initial_surface_view_evaluation/centroid", Marker)
         self.z_cutoff = 1
@@ -68,12 +69,12 @@ class InitialViewEvaluationCore():
         self.action_server = actionlib.SimpleActionServer("/surface_based_object_learning/evaluate_surface", EvaluateSurfaceAction,
         execute_cb=self.do_task_cb, auto_start = False)
         self.action_server.start()
-        rospy.loginfo("action server set up")
+        rospy.loginfo("VIEW EVAL: action server set up")
         rospy.spin()
 
 
     def log_task(self,data):
-        rospy.loginfo("logging initial view")
+        rospy.loginfo("VIEW EVAL: logging initial view")
         waypoint,filtered_octomap,normals,segmented_objects_octomap,sweep_imgs = data
         lv = LoggedInitialView()
         lv.timestamp = int(rospy.Time.now().to_sec())
@@ -87,7 +88,7 @@ class InitialViewEvaluationCore():
         #lv.sweep_clouds = sweep_clouds
         lv.sweep_imgs = sweep_imgs
         self.initial_view_store.insert_named(lv.id,lv)
-        rospy.loginfo("done")
+        rospy.loginfo("VIEW EVAL: done")
 
     def do_task_cb(self,action):
         octo = self.do_task(action.waypoint_id)
@@ -96,12 +97,12 @@ class InitialViewEvaluationCore():
 
 
     def do_task(self,waypoint):
-        rospy.loginfo("-- Executing initial view evaluation task at waypoint: " + waypoint)
+        rospy.loginfo("VIEW EVAL: -- Executing initial view evaluation task at waypoint: " + waypoint)
         obs = self.get_filtered_obs_from_wp(waypoint)
         octo_obs = self.convert_cloud_to_octomap([obs])
         normals = self.get_normals_from_octomap(octo_obs)
 
-        rospy.loginfo("got: " + str(len(normals)) + " up-facing normal points")
+        rospy.loginfo("VIEW EVAL: got: " + str(len(normals)) + " up-facing normal points")
         sx = 0
         sy = 0
         sz = 0
@@ -152,7 +153,7 @@ class InitialViewEvaluationCore():
     # includes a bunch of sleeps just to make super extra sure we don't get any camera blur due to all the movement
     def do_view_sweep_from_point(self,point):
 
-        rospy.loginfo("doing mini-sweep")
+        rospy.loginfo("VIEW EVAL: doing mini-sweep")
         sweep_clouds = []
         sweep_imgs = []
         segmented_clouds = []
@@ -179,14 +180,14 @@ class InitialViewEvaluationCore():
         return segmented_clouds,sweep_clouds,sweep_imgs
 
     def get_filtered_obs_from_wp(self,waypoint):
-        rospy.loginfo("asking for latest obs at:" + waypoint)
+        rospy.loginfo("VIEW EVAL: asking for latest obs at:" + waypoint)
         r = self.get_obs(waypoint,self.obs_resolution)
-        rospy.loginfo("num points in this obs:" + str(len(r.cloud.data)))
+        rospy.loginfo("VIEW EVAL: num points in this obs:" + str(len(r.cloud.data)))
         in_roi = 0
         out_roi = 0
         point_set = []
         raw_point_set = []
-        rospy.loginfo("making point set")
+        rospy.loginfo("VIEW EVAL: making point set")
 
         rp = rospy.wait_for_message("/robot_pose", geometry_msgs.msg.Pose, timeout=10.0)
 
@@ -218,7 +219,7 @@ class InitialViewEvaluationCore():
         return norm.up_facing_points
 
     def transform_cloud_to_map(self,cloud):
-        rospy.loginfo("to map from " + cloud.header.frame_id)
+        rospy.loginfo("VIEW EVAL: to map from " + cloud.header.frame_id)
 
 
         t = self.transformation_store.getLatestCommonTime("map", cloud.header.frame_id)
