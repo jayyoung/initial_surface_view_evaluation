@@ -22,6 +22,7 @@
 #include <pcl/io/pcd_io.h>
 #include <pcl/filters/statistical_outlier_removal.h>
 
+#include "initial_surface_view_evaluation/CalculateOctreeOverlap.h"
 #include "initial_surface_view_evaluation/ConvertCloudToOctomap.h"
 #include "initial_surface_view_evaluation/ExtractNormalsFromOctomap.h"
 
@@ -78,7 +79,7 @@ octomap_msgs::Octomap convert_pcd_to_octomap(std::vector<sensor_msgs::PointCloud
       */
 
       pcl::PCDWriter writer;
-      writer.write<pcl::PointXYZ> ("filtered.pcd", *cloud_filtered_ptr, false);
+    //  writer.write<pcl::PointXYZ> ("filtered.pcd", *cloud_filtered_ptr, false);
       temp_cloud = cloud_filtered_ptr;
 
       ROS_INFO("- Computing centroid");
@@ -87,6 +88,7 @@ octomap_msgs::Octomap convert_pcd_to_octomap(std::vector<sensor_msgs::PointCloud
 
       // uh oh, should this be robot_pose?
       octomap::point3d octo_centroid(centroid[0],centroid[1],centroid[2]);
+      //octomap::point3d octo_centroid(7.182,2.970,1.76);
 
       ROS_INFO("- Converting to OctoMap");
       // convert observation cloud to octomap and return it
@@ -98,8 +100,8 @@ octomap_msgs::Octomap convert_pcd_to_octomap(std::vector<sensor_msgs::PointCloud
   }
 
 
-  ROS_INFO("- Writing to file");
-  map.writeBinary("output.bt");
+//  ROS_INFO("- Writing to file");
+//  map.writeBinary("output.bt");
   ROS_INFO("- Converting to ROS msg");
   octomap_msgs::Octomap octo_msg;
   octo_msg.header.frame_id = "map";
@@ -107,6 +109,57 @@ octomap_msgs::Octomap convert_pcd_to_octomap(std::vector<sensor_msgs::PointCloud
   octomap_pub.publish(octo_msg);
   ROS_INFO("- Done! Returning");
   return octo_msg;
+}
+
+// calculates the octomap overlap between source and target
+// how many points from source are also in target?
+float calculate_octo_overlap(sensor_msgs::PointCloud2 source, sensor_msgs::PointCloud2 target) {
+  std::vector<sensor_msgs::PointCloud2> s;
+  std::vector<sensor_msgs::PointCloud2> t;
+  s.push_back(source);
+  t.push_back(target);
+
+  octomap_msgs::Octomap source_octo = convert_pcd_to_octomap(s);
+  octomap_msgs::Octomap target_octo = convert_pcd_to_octomap(t);
+
+  // that API though
+  AbstractOcTree* source_tree = octomap_msgs::fullMsgToMap(source_octo);
+  AbstractOcTree* target_tree = octomap_msgs::fullMsgToMap(target_octo);
+
+  OcTree* source_octree = dynamic_cast<OcTree*>(source_tree);
+  OcTree* target_octree = dynamic_cast<OcTree*>(target_tree);
+
+
+  // the highest possible score is that all of the points from source are also in target
+  float source_nodes = 0;
+  float overlapping_nodes = 0;
+  for(OcTree::tree_iterator it = source_octree->begin_tree(), end=source_octree->end_tree(); it!= end; ++it)
+    {
+      source_nodes+=1;
+      point3d source_point = it.getCoordinate();
+      for(OcTree::tree_iterator itt = target_octree->begin_tree(), endt=target_octree->end_tree(); itt!= endt; ++itt)
+      {
+        point3d target_point = itt.getCoordinate();
+        float distance = source_point.distance(target_point);
+        if(distance <= source_octree->getResolution()) {
+          overlapping_nodes++;
+          break;
+        }
+      }
+
+    }
+
+  cout << " -- " << endl;
+  cout << "points in source cloud: " << source_nodes << endl;
+  cout << "overlapping nodes: " << overlapping_nodes << endl;
+
+  float degree = (100.0/source_nodes)*overlapping_nodes;
+
+  cout << "degree of overlap: " << degree << endl;
+  cout << " -- " << endl;
+
+
+  return degree;
 }
 
 std::vector<geometry_msgs::Point> extract_normals_from_octomap(octomap_msgs::Octomap& in)
@@ -197,16 +250,24 @@ initial_surface_view_evaluation::ConvertCloudToOctomap::Response &res)
   return true;
 }
 
+bool calculate_octree_overlap_cb(
+initial_surface_view_evaluation::CalculateOctreeOverlap::Request &req, // phew! what a mouthful!
+initial_surface_view_evaluation::CalculateOctreeOverlap::Response &res)
+{
+  float out = calculate_octo_overlap(req.source,req.target);
+  res.degree_of_overlap = out;
+  return true;
+}
+
 int main (int argc, char** argv)
 {
   ros::init (argc, argv, "surface_based_object_learnin_octomap_tools");
   ros::NodeHandle node;
 
-
   ROS_INFO("Setting up OcTree conversion services");
   ros::ServiceServer conversion_service = node.advertiseService("/surface_based_object_learning/convert_pcd_to_octomap", convert_pcd_to_octomap_cb);
-  ros::ServiceServer normal_service = node.advertiseService("/surface_based_object_learning/extract_normals_from_octomap", extract_normals_from_octomap_cb);
-
+  ros::ServiceServer extract_service = node.advertiseService("/surface_based_object_learning/extract_normals_from_octomap", extract_normals_from_octomap_cb);
+  ros::ServiceServer octree_overlap = node.advertiseService("/surface_based_object_learning/calculate_octree_overlap", calculate_octree_overlap_cb);
   ROS_INFO("Done");
 
 

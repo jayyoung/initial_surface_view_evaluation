@@ -16,7 +16,7 @@ find_package(catkin REQUIRED COMPONENTS
   pcl_ros
   pcl_conversions
   surface_based_object_learning
-   genmsg 
+   genmsg
    actionlib_msgs
    actionlib
 )
@@ -63,6 +63,7 @@ find_package(catkin REQUIRED COMPONENTS
 ## Generate services in the 'srv' folder
  add_service_files(
    FILES
+   CalculateOctreeOverlap.srv
    ConvertCloudToOctomap.srv
    ExtractNormalsFromOctomap.srv
  )

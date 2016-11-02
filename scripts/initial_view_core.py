@@ -55,6 +55,7 @@ class InitialViewEvaluationCore():
         self.get_normals = rospy.ServiceProxy('/surface_based_object_learning/extract_normals_from_octomap',ExtractNormalsFromOctomap)
         self.get_obs = rospy.ServiceProxy('/semantic_map_publisher/SemanticMapPublisher/ObservationService',ObservationService)
         self.roi_srv = rospy.ServiceProxy('/check_point_set_in_soma_roi',PointSetInROI)
+        #self.overlap_srv = rospy.ServiceProxy('/surface_based_object_learning/calculate_octree_overlap',CalculateOctreeOverlap)
         rospy.loginfo("done")
         self.ptu_gazer_controller = PTUGazeController()
         self.marker_publisher = rospy.Publisher("/initial_surface_view_evaluation/centroid", Marker)
