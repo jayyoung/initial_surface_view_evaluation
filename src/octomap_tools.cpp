@@ -49,6 +49,12 @@ octomap_msgs::Octomap convert_pcd_to_octomap(std::vector<sensor_msgs::PointCloud
   octomap::OcTree map(octree_resolution);
   ros::Publisher octomap_pub = n.advertise<octomap_msgs::Octomap>("/initial_surface_view_evaluation/converted_octomaps", 1000);
 
+  geometry_msgs::Pose robot_pose = *ros::topic::waitForMessage<geometry_msgs::Pose>("/robot_pose", ros::Duration(5));
+
+  // little bit of a hack, this is just a guesstimate of how high up the PTU is
+  robot_pose.position.z = 1.76;
+
+
   for(std::vector<sensor_msgs::PointCloud2>::iterator iter = input_clouds.begin(), end = input_clouds.end(); iter != end; ++iter) {
       sensor_msgs::PointCloud2 input_cloud = *iter;
 
@@ -87,7 +93,9 @@ octomap_msgs::Octomap convert_pcd_to_octomap(std::vector<sensor_msgs::PointCloud
       pcl::compute3DCentroid(*temp_cloud, centroid);
 
       // uh oh, should this be robot_pose?
-      octomap::point3d octo_centroid(centroid[0],centroid[1],centroid[2]);
+    //  octomap::point3d octo_centroid(centroid[0],centroid[1],centroid[2]);
+    octomap::point3d octo_centroid(robot_pose.position.x,robot_pose.position.y,robot_pose.position.z);
+
       //octomap::point3d octo_centroid(7.182,2.970,1.76);
 
       ROS_INFO("- Converting to OctoMap");
