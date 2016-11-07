@@ -92,13 +92,8 @@ class InitialViewEvaluationCore():
 
     def do_task_cb(self,action):
         octo = self.do_task(action.waypoint_id)
-        #print("tffffff")
-
         re =  initial_surface_view_evaluation.msg.EvaluateSurfaceResult(octomap=octo)
         self.action_server.set_succeeded(re)
-
-        #return result
-
 
     def do_task(self,waypoint):
         rospy.loginfo("VIEW EVAL: -- Executing initial view evaluation task at waypoint: " + waypoint)
