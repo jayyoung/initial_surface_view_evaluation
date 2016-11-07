@@ -92,8 +92,12 @@ class InitialViewEvaluationCore():
 
     def do_task_cb(self,action):
         octo = self.do_task(action.waypoint_id)
-        self.action_server.set_succeeded()
-        return octo
+        #print("tffffff")
+
+        re =  initial_surface_view_evaluation.msg.EvaluateSurfaceResult(octomap=octo)
+        self.action_server.set_succeeded(re)
+
+        #return result
 
 
     def do_task(self,waypoint):
@@ -144,10 +148,10 @@ class InitialViewEvaluationCore():
         pt_s.point.z = sz
         objects,sweep_clouds,sweep_imgs = self.do_view_sweep_from_point(pt_s)
         object_octomap = self.convert_cloud_to_octomap(objects)
-
+        #object_octomap.header = "/map"
         # waypoint,filtered_cloud,filtered_octomap,normals,segmented_objects_octomap,sweep_clouds,sweep_imgs
         self.log_task([waypoint,octo_obs,n_cloud,object_octomap,sweep_imgs])
-
+        return object_octomap
 
 
     # includes a bunch of sleeps just to make super extra sure we don't get any camera blur due to all the movement
