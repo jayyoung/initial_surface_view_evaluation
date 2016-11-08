@@ -52,6 +52,7 @@
   <build_depend>semantic_map</build_depend>
   <build_depend>semantic_map_publisher</build_depend>
   <build_depend>surface_based_object_learning</build_depend>
+  <build_depend>initial_surface_view_evaluation</build_depend>
   <build_depend>actionlib</build_depend>
   <build_depend>actionlib_msgs</build_depend>
 
@@ -69,7 +70,7 @@
   <run_depend>semantic_map</run_depend>
   <run_depend>semantic_map_publisher</run_depend>
   <run_depend>surface_based_object_learning</run_depend>
-
+  <run_depend>initial_surface_view_evaluation</run_depend>
   <!-- The export tag contains other, unspecified, tags -->
   <export>
     <!-- Other tools can request additional information be placed here -->
