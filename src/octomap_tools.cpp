@@ -45,7 +45,7 @@ octomap_msgs::Octomap convert_pcd_to_octomap(std::vector<sensor_msgs::PointCloud
   // when i was your age, we used strongly typed languages
   // "what's a type, grandad?"
   // well, let me show you
-  float octree_resolution = 0.03f;
+  float octree_resolution = 0.02f;
   octomap::OcTree map(octree_resolution);
   ros::Publisher octomap_pub = n.advertise<octomap_msgs::Octomap>("/initial_surface_view_evaluation/converted_octomaps", 1000);
 
