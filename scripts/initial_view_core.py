@@ -160,12 +160,12 @@ class InitialViewEvaluationCore():
         angles = [sweep_degree,-sweep_degree,-sweep_degree]
 
         self.ptu_gazer_controller.reset_gaze()
-        rospy.sleep(0.5)
+        rospy.sleep(1)
         self.ptu_gazer_controller.look_at_map_point(point)
-
+	rospy.sleep(1)
         for a in angles:
             self.ptu_gazer_controller.pan_ptu_relative(a)
-            rospy.sleep(0.5)
+            rospy.sleep(1)
             cloud = rospy.wait_for_message("/head_xtion/depth/points",PointCloud2,timeout=10.0)
             sweep_clouds.append(cloud)
             segmented_cloud = self.segmentation.segment(cloud)
@@ -173,8 +173,8 @@ class InitialViewEvaluationCore():
             segmented_clouds.append(segmented_map_cloud)
             image = rospy.wait_for_message("/head_xtion/rgb/image_color",Image,timeout=10.0)
             sweep_imgs.append(image)
-            rospy.sleep(0.5)
-
+  
+	rospy.sleep(1)
         self.ptu_gazer_controller.reset_gaze()
         return segmented_clouds,sweep_clouds,sweep_imgs
 

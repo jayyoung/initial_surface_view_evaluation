@@ -2,6 +2,9 @@ import roslib
 import rospy
 from sensor_msgs.msg import PointCloud2, PointField
 from initial_surface_view_evaluation.srv import *
+from semantic_map_publisher.srv import *
+from semantic_map.srv import *
+
 
 
 if __name__ == '__main__':
@@ -13,15 +16,11 @@ if __name__ == '__main__':
 
     # callback chain to deal with storing *objects*
     print("waiting for service")
-    send_pcd = rospy.ServiceProxy('/surface_based_object_learning/convert_pcd_to_octomap',ConvertCloudToOctomap)
-    print("done")
+   
 
-    cloud = rospy.wait_for_message("/head_xtion/depth_registered/points",PointCloud2)
-    out = send_pcd([cloud])
-
-    print("done")
-
-    if(out is not None):
-        print("seem to have gotten a response that isn't junk")
+    get_obs = rospy.ServiceProxy('/semantic_map_publisher/SemanticMapPublisher/ObservationService',ObservationService)
+    obs = get_obs("WayPoint17",0.03)    
+    print("got something" + str(obs.cloud.header))
+    print("num points in cloud: " + str(len(obs.cloud.data)))
 
     #rospy.spin()
