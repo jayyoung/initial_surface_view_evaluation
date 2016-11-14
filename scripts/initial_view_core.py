@@ -60,7 +60,8 @@ class InitialViewEvaluationCore():
         rospy.loginfo("VIEW EVAL: done")
         self.ptu_gazer_controller = PTUGazeController()
         self.marker_publisher = rospy.Publisher("/initial_surface_view_evaluation/centroid", Marker)
-        self.z_cutoff = 1
+        self.min_z_cutoff = 0.7
+        self.max_z_cutoff = 1.7
         self.obs_resolution = 0.03
         self.initial_view_store = MessageStoreProxy(database="initial_surface_views", collection="logged_views")
         self.segmentation = SegmentationWrapper()
@@ -142,7 +143,8 @@ class InitialViewEvaluationCore():
         pt_s.point.y = sy
         pt_s.point.z = sz
         objects,sweep_clouds,sweep_imgs = self.do_view_sweep_from_point(pt_s)
-        object_octomap = self.convert_cloud_to_octomap(objects)
+        roi_filtered_objects = self.get_filtered_roi_cloud(objects)
+        object_octomap = self.convert_cloud_to_octomap(roi_filtered_objects)
         #object_octomap.header = "/map"
         # waypoint,filtered_cloud,filtered_octomap,normals,segmented_objects_octomap,sweep_clouds,sweep_imgs
         self.log_task([waypoint,octo_obs,n_cloud,object_octomap,sweep_imgs])
@@ -160,9 +162,13 @@ class InitialViewEvaluationCore():
         angles = [sweep_degree,-sweep_degree,-sweep_degree]
 
         self.ptu_gazer_controller.reset_gaze()
+
         rospy.sleep(1)
+
         self.ptu_gazer_controller.look_at_map_point(point)
-	rospy.sleep(1)
+
+        rospy.sleep(1)
+
         for a in angles:
             self.ptu_gazer_controller.pan_ptu_relative(a)
             rospy.sleep(1)
@@ -173,10 +179,33 @@ class InitialViewEvaluationCore():
             segmented_clouds.append(segmented_map_cloud)
             image = rospy.wait_for_message("/head_xtion/rgb/image_color",Image,timeout=10.0)
             sweep_imgs.append(image)
-  
-	rospy.sleep(1)
+
+        rospy.sleep(1)
         self.ptu_gazer_controller.reset_gaze()
         return segmented_clouds,sweep_clouds,sweep_imgs
+
+    def get_filtered_roi_cloud(self,cloud):
+        point_set = []
+        raw_point_set = []
+        rospy.loginfo("VIEW EVAL: making point set to evaluate segmentation clouds against ROI")
+        rp = rospy.wait_for_message("/robot_pose", geometry_msgs.msg.Pose, timeout=10.0)
+        for p_in in pc2.read_points(cloud,field_names=["x","y","z","rgb"]):
+            pp = geometry_msgs.msg.Point()
+            pp.x = p_in[0]
+            pp.y = p_in[1]
+            pp.z = p_in[2]
+            if(pp.z > self.min_z_cutoff and pp.z < self.max_z_cutoff):
+                point_set.append(pp)
+                raw_point_set.append(p_in)
+        res = self.roi_srv(point_set,rp.position)
+        print("done")
+        print("size of point set: " + str(len(raw_point_set)))
+        print("size of result: " + str(len(res.result)))
+        print("points in roi: " + str(sum(res.result)))
+        filtered_points = list(compress(raw_point_set,res.result))
+        print("size of filtered: " + str(len(filtered_points)))
+        rgb = pc2.create_cloud(cloud.header,cloud.fields,filtered_points)
+        return rgb
 
     def get_filtered_obs_from_wp(self,waypoint):
         rospy.loginfo("VIEW EVAL: asking for latest obs at:" + waypoint)
@@ -195,7 +224,7 @@ class InitialViewEvaluationCore():
             pp.x = p_in[0]
             pp.y = p_in[1]
             pp.z = p_in[2]
-            if(pp.z > self.z_cutoff and pp.z < 1.5):
+            if(pp.z > self.min_z_cutoff and pp.z < self.max_z_cutoff):
                 point_set.append(pp)
                 raw_point_set.append(p_in)
 
