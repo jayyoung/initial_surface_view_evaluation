@@ -144,7 +144,7 @@ class InitialViewEvaluationCore():
         pt_s.point.z = sz
         objects,sweep_clouds,sweep_imgs = self.do_view_sweep_from_point(pt_s)
         roi_filtered_objects = self.get_filtered_roi_cloud(objects)
-        object_octomap = self.convert_cloud_to_octomap(roi_filtered_objects)
+        object_octomap = self.convert_cloud_to_octomap([roi_filtered_objects])
         #object_octomap.header = "/map"
         # waypoint,filtered_cloud,filtered_octomap,normals,segmented_objects_octomap,sweep_clouds,sweep_imgs
         self.log_task([waypoint,octo_obs,n_cloud,object_octomap,sweep_imgs])
@@ -189,7 +189,7 @@ class InitialViewEvaluationCore():
         raw_point_set = []
         rospy.loginfo("VIEW EVAL: making point set to evaluate segmentation clouds against ROI")
         rp = rospy.wait_for_message("/robot_pose", geometry_msgs.msg.Pose, timeout=10.0)
-        
+
         for cloud in cloud_set:
             for p_in in pc2.read_points(cloud,field_names=["x","y","z","rgb"]):
                 pp = geometry_msgs.msg.Point()
