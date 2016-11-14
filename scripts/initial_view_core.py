@@ -184,19 +184,22 @@ class InitialViewEvaluationCore():
         self.ptu_gazer_controller.reset_gaze()
         return segmented_clouds,sweep_clouds,sweep_imgs
 
-    def get_filtered_roi_cloud(self,cloud):
+    def get_filtered_roi_cloud(self,cloud_set):
         point_set = []
         raw_point_set = []
         rospy.loginfo("VIEW EVAL: making point set to evaluate segmentation clouds against ROI")
         rp = rospy.wait_for_message("/robot_pose", geometry_msgs.msg.Pose, timeout=10.0)
-        for p_in in pc2.read_points(cloud,field_names=["x","y","z","rgb"]):
-            pp = geometry_msgs.msg.Point()
-            pp.x = p_in[0]
-            pp.y = p_in[1]
-            pp.z = p_in[2]
-            if(pp.z > self.min_z_cutoff and pp.z < self.max_z_cutoff):
-                point_set.append(pp)
-                raw_point_set.append(p_in)
+        
+        for cloud in cloud_set:
+            for p_in in pc2.read_points(cloud,field_names=["x","y","z","rgb"]):
+                pp = geometry_msgs.msg.Point()
+                pp.x = p_in[0]
+                pp.y = p_in[1]
+                pp.z = p_in[2]
+                if(pp.z > self.min_z_cutoff and pp.z < self.max_z_cutoff):
+                    point_set.append(pp)
+                    raw_point_set.append(p_in)
+
         res = self.roi_srv(point_set,rp.position)
         print("done")
         print("size of point set: " + str(len(raw_point_set)))
