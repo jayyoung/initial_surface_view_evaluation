@@ -279,12 +279,26 @@ class InitialViewEvaluationCore():
         points_out = []
         rospy.loginfo("CLOUD FIELDS:")
         rospy.loginfo(cloud.fields)
+        filtered_fields = []
+        # christ, why
+        for k in cloud.fields:
+            if(k.offset == 0):
+                filtered_fields.append(k)
+            if(k.offset == 4):
+                filtered_fields.append(k)
+            if(k.offset == 8):
+                filtered_fields.append(k)
+            if(k.offset == 7):
+                filtered_fields.append(k)
+
+
+
         for p_in in pc2.read_points(cloud,field_names=["x","y","z","rgb"]):
             p_out = t_kdl * PyKDL.Vector(p_in[0], p_in[1], p_in[2])
             points_out.append([p_out[0],p_out[1],p_out[2]])
 
         cloud.header.frame_id = "map"
-        res = pc2.create_cloud(cloud.header, cloud.fields, points_out)
+        res = pc2.create_cloud(cloud.header, filtered_fields, points_out)
         rospy.loginfo(cloud.header)
         return res
 
