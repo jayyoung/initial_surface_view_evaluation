@@ -58,6 +58,12 @@ class InitialViewEvaluationCore():
         self.roi_srv = rospy.ServiceProxy('/check_point_set_in_soma_roi',PointSetInROI)
         #self.overlap_srv = rospy.ServiceProxy('/surface_based_object_learning/calculate_octree_overlap',CalculateOctreeOverlap)
         rospy.loginfo("VIEW EVAL: done")
+
+        #self.pc_topic = "/head_xtion/depth/points"
+        self.pc_topic = "/temporal_filtered_cloud"
+
+        self.rgb_topic = "/head_xtion/rgb/image_color"
+
         self.ptu_gazer_controller = PTUGazeController()
         self.marker_publisher = rospy.Publisher("/initial_surface_view_evaluation/centroid", Marker)
         self.min_z_cutoff = 0.7
@@ -142,8 +148,8 @@ class InitialViewEvaluationCore():
         pt_s.point.x = sx
         pt_s.point.y = sy
         pt_s.point.z = sz
-        objects,sweep_clouds,sweep_imgs = self.do_view_sweep_from_point(pt_s)
-        roi_filtered_objects = self.get_filtered_roi_cloud(objects)
+        segmented_clouds,sweep_clouds,sweep_imgs = self.do_view_sweep_from_point(pt_s)
+        roi_filtered_objects = self.get_filtered_roi_cloud(segmented_clouds)
         object_octomap = self.convert_cloud_to_octomap([roi_filtered_objects])
         #object_octomap.header = "/map"
         # waypoint,filtered_cloud,filtered_octomap,normals,segmented_objects_octomap,sweep_clouds,sweep_imgs
@@ -171,13 +177,14 @@ class InitialViewEvaluationCore():
 
         for a in angles:
             self.ptu_gazer_controller.pan_ptu_relative(a)
-            rospy.sleep(1)
-            cloud = rospy.wait_for_message("/head_xtion/depth/points",PointCloud2,timeout=10.0)
+            rospy.loginfo("sleeping to give temporal smoothing something to look at")
+            rospy.sleep(5)
+            cloud = rospy.wait_for_message(self.pc_topic,PointCloud2,timeout=10.0)
             sweep_clouds.append(cloud)
             segmented_cloud = self.segmentation.segment(cloud)
             segmented_map_cloud = self.transform_cloud_to_map(segmented_cloud)
             segmented_clouds.append(segmented_map_cloud)
-            image = rospy.wait_for_message("/head_xtion/rgb/image_color",Image,timeout=10.0)
+            image = rospy.wait_for_message(self.rgb_topic,Image,timeout=10.0)
             sweep_imgs.append(image)
 
         rospy.sleep(1)
@@ -207,7 +214,7 @@ class InitialViewEvaluationCore():
         print("points in roi: " + str(sum(res.result)))
         filtered_points = list(compress(raw_point_set,res.result))
         print("size of filtered: " + str(len(filtered_points)))
-        rgb = pc2.create_cloud(cloud.header,cloud.fields,filtered_points)
+        rgb = pc2.create_cloud(cloud_set[0].header,cloud_set[0].fields,filtered_points)
         return rgb
 
     def get_filtered_obs_from_wp(self,waypoint):
@@ -251,7 +258,9 @@ class InitialViewEvaluationCore():
 
     def transform_cloud_to_map(self,cloud):
         rospy.loginfo("VIEW EVAL: to map from " + cloud.header.frame_id)
-
+        if("temporal" in cloud.header.frame_id):
+            rospy.loginfo("un-breaking this")
+            cloud.header.frame_id = "head_xtion_depth_optical_frame"
 
         t = self.transformation_store.getLatestCommonTime("map", cloud.header.frame_id)
         tr_r = self.transformation_store.lookupTransform("map", cloud.header.frame_id, t)
