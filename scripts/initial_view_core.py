@@ -214,7 +214,7 @@ class InitialViewEvaluationCore():
         print("points in roi: " + str(sum(res.result)))
         filtered_points = list(compress(raw_point_set,res.result))
         print("size of filtered: " + str(len(filtered_points)))
-        rgb = pc2.create_cloud(cloud_set[0].header,cloud_set[0].fields,filtered_points)
+        rgb = pc2.create_cloud(cloud_set[0].header,["x","y","z","rgb"],filtered_points)
         return rgb
 
     def get_filtered_obs_from_wp(self,waypoint):
@@ -229,7 +229,7 @@ class InitialViewEvaluationCore():
 
         rp = rospy.wait_for_message("/robot_pose", geometry_msgs.msg.Pose, timeout=10.0)
 
-        for p_in in pc2.read_points(r.cloud,field_names=r.cloud.fields):
+        for p_in in pc2.read_points(r.cloud,field_names=["x","y","z","rgb"]):
             pp = geometry_msgs.msg.Point()
             pp.x = p_in[0]
             pp.y = p_in[1]
@@ -245,7 +245,7 @@ class InitialViewEvaluationCore():
         print("points in roi: " + str(sum(res.result)))
         filtered_points = list(compress(raw_point_set,res.result))
         print("size of filtered: " + str(len(filtered_points)))
-        rgb = pc2.create_cloud(r.cloud.header,r.cloud.fields,filtered_points)
+        rgb = pc2.create_cloud(r.cloud.header,["x","y","z","rgb"],filtered_points)
         return rgb
 
     def convert_cloud_to_octomap(self,cloud):
@@ -277,12 +277,12 @@ class InitialViewEvaluationCore():
         tr_s.transform = tr
         t_kdl = self.transform_to_kdl(tr_s)
         points_out = []
-        for p_in in pc2.read_points(cloud,field_names=cloud.fields):
+        for p_in in pc2.read_points(cloud,field_names=["x","y","z","rgb"]):
             p_out = t_kdl * PyKDL.Vector(p_in[0], p_in[1], p_in[2])
             points_out.append([p_out[0],p_out[1],p_out[2]])
 
         cloud.header.frame_id = "map"
-        res = pc2.create_cloud(cloud.header, cloud.fields, points_out)
+        res = pc2.create_cloud(cloud.header, ["x","y","z","rgb"], points_out)
         rospy.loginfo(cloud.header)
         return res
 
