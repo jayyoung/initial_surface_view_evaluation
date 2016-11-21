@@ -280,7 +280,7 @@ class InitialViewEvaluationCore():
         rospy.loginfo("CLOUD FIELDS:")
         rospy.loginfo(cloud.fields)
         filtered_fields = []
-        # christ, why
+        # christ, why. this is a hack to fix something with the temporal smoothed pc
         for k in cloud.fields:
             if(k.offset == 0):
                 filtered_fields.append(k)
