@@ -40,8 +40,10 @@ class SegmentationWrapper():
         int_data = list(raw_cloud)
         aggregated_cloud = []
         for c in clusters:
-            for i in c.data:
-                aggregated_cloud.append(int_data[i])
+            if(len(c.data) > 500 and len(c.data) < 5000):
+                for i in c.data:
+                    aggregated_cloud.append(int_data[i])
+                    
         rgb = pc2.create_cloud(input_cloud.header,input_cloud.fields,aggregated_cloud)
         rospy.loginfo("VIEW EVAL: added " + str(len(clusters)) + " clusters")
         #python_pcd.write_pcd("view.pcd",rgb,overwrite=True)
