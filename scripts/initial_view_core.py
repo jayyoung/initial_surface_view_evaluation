@@ -214,7 +214,7 @@ class InitialViewEvaluationCore():
         print("points in roi: " + str(sum(res.result)))
         filtered_points = list(compress(raw_point_set,res.result))
         print("size of filtered: " + str(len(filtered_points)))
-        rgb = pc2.create_cloud(cloud_set[0].header,["x","y","z","rgb"],filtered_points)
+        rgb = pc2.create_cloud(cloud_set[0].header,cloud_set[0].fields,filtered_points)
         return rgb
 
     def get_filtered_obs_from_wp(self,waypoint):
@@ -245,7 +245,7 @@ class InitialViewEvaluationCore():
         print("points in roi: " + str(sum(res.result)))
         filtered_points = list(compress(raw_point_set,res.result))
         print("size of filtered: " + str(len(filtered_points)))
-        rgb = pc2.create_cloud(r.cloud.header,["x","y","z","rgb"],filtered_points)
+        rgb = pc2.create_cloud(r.cloud.header,r.cloud.fields,filtered_points)
         return rgb
 
     def convert_cloud_to_octomap(self,cloud):
@@ -282,7 +282,7 @@ class InitialViewEvaluationCore():
             points_out.append([p_out[0],p_out[1],p_out[2]])
 
         cloud.header.frame_id = "map"
-        res = pc2.create_cloud(cloud.header, ["x","y","z","rgb"], points_out)
+        res = pc2.create_cloud(cloud.header, cloud.fields, points_out)
         rospy.loginfo(cloud.header)
         return res
 
