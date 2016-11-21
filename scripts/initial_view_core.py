@@ -229,7 +229,7 @@ class InitialViewEvaluationCore():
 
         rp = rospy.wait_for_message("/robot_pose", geometry_msgs.msg.Pose, timeout=10.0)
 
-        for p_in in pc2.read_points(r.cloud,field_names=cloud.fields):
+        for p_in in pc2.read_points(r.cloud,field_names=r.cloud.fields):
             pp = geometry_msgs.msg.Point()
             pp.x = p_in[0]
             pp.y = p_in[1]
