@@ -229,7 +229,7 @@ class InitialViewEvaluationCore():
 
         rp = rospy.wait_for_message("/robot_pose", geometry_msgs.msg.Pose, timeout=10.0)
 
-        for p_in in pc2.read_points(r.cloud,field_names=["x","y","z","rgb"]):
+        for p_in in pc2.read_points(r.cloud,field_names=cloud.fields):
             pp = geometry_msgs.msg.Point()
             pp.x = p_in[0]
             pp.y = p_in[1]
@@ -277,7 +277,7 @@ class InitialViewEvaluationCore():
         tr_s.transform = tr
         t_kdl = self.transform_to_kdl(tr_s)
         points_out = []
-        for p_in in pc2.read_points(cloud,field_names=["x","y","z","rgb"]):
+        for p_in in pc2.read_points(cloud,field_names=cloud.fields):
             p_out = t_kdl * PyKDL.Vector(p_in[0], p_in[1], p_in[2])
             points_out.append([p_out[0],p_out[1],p_out[2]])
 
