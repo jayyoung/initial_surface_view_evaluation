@@ -42,7 +42,7 @@ class SegmentationWrapper():
         int_data = list(raw_cloud)
         aggregated_cloud = []
         for c in clusters:
-            if(len(c.data) > 500 and len(c.data) < 5000):
+            if(len(c.data) > 250 and len(c.data) < 10000):
                 for i in c.data:
                     aggregated_cloud.append(int_data[i])
 
@@ -60,6 +60,7 @@ class InitialViewEvaluationCore():
         self.get_normals = rospy.ServiceProxy('/surface_based_object_learning/extract_normals_from_octomap',ExtractNormalsFromOctomap)
         self.get_obs = rospy.ServiceProxy('/semantic_map_publisher/SemanticMapPublisher/ObservationService',ObservationService)
         self.roi_srv = rospy.ServiceProxy('/check_point_set_in_soma_roi',PointSetInROI)
+        self.closest_roi_srv = rospy.ServiceProxy('/get_closest_roi_to_robot',GetROIClosestToRobot)
         #self.overlap_srv = rospy.ServiceProxy('/surface_based_object_learning/calculate_octree_overlap',CalculateOctreeOverlap)
         rospy.loginfo("VIEW EVAL: done")
 
@@ -173,16 +174,16 @@ class InitialViewEvaluationCore():
 
         self.ptu_gazer_controller.reset_gaze()
 
-        rospy.sleep(1)
+        rospy.sleep(2)
 
         self.ptu_gazer_controller.look_at_map_point(point)
 
-        rospy.sleep(1)
+        rospy.sleep(2)
 
         for a in angles:
             self.ptu_gazer_controller.pan_ptu_relative(a)
-            rospy.loginfo("sleeping to give temporal smoothing something to look at")
-            rospy.sleep(5)
+            #rospy.loginfo("sleeping to give temporal smoothing something to look at")
+            rospy.sleep(2)
             cloud = rospy.wait_for_message(self.pc_topic,PointCloud2,timeout=10.0)
             sweep_clouds.append(cloud)
             f_roi_cloud = self.get_filtered_roi_cloud([cloud])
@@ -192,7 +193,7 @@ class InitialViewEvaluationCore():
             image = rospy.wait_for_message(self.rgb_topic,Image,timeout=10.0)
             sweep_imgs.append(image)
 
-        rospy.sleep(1)
+        rospy.sleep(2)
         self.ptu_gazer_controller.reset_gaze()
         return segmented_clouds,sweep_clouds,sweep_imgs
 
@@ -204,12 +205,14 @@ class InitialViewEvaluationCore():
 
         for cloud in cloud_set:
             for p_in in pc2.read_points(cloud,field_names=["x","y","z","rgb"]):
-                pp = float('nan')
+                pp = geometry_msgs.msg.Point()
+                pp.x = p_in[0]
+                pp.y = p_in[1]
+                pp.z = p_in[2]
                 if(pp.z > self.min_z_cutoff and pp.z < self.max_z_cutoff):
-                    pp = geometry_msgs.msg.Point()
-                    pp.x = p_in[0]
-                    pp.y = p_in[1]
-                    pp.z = p_in[2]
+                    pass
+                else:
+                    pp = float('nan')
                 point_set.append(pp)
                 raw_point_set.append(p_in)
 
