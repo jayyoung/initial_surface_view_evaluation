@@ -35,14 +35,20 @@ class SegmentationWrapper():
     def segment(self,input_cloud):
         rospy.loginfo("VIEW EVAL: segmenting")
         # segment scene
-        output = self.segmentation_srv(cloud=input_cloud)
+
+        rospy.wait_for_service('/get_closest_roi_to_robot',10)
+        roicl = rospy.ServiceProxy('/get_closest_roi_to_robot',GetROIClosestToRobot)
+        rp = rospy.wait_for_message("/robot_pose",Pose,10)
+        roip = roicl(pose=rp.position)
+
+        output = self.segmentation_srv(cloud=input_cloud,posearray=roip.output)
         clusters = output.clusters_indices
         # return segments as a list of pointcloud2 objects
         raw_cloud = pc2.read_points(input_cloud)
         int_data = list(raw_cloud)
         aggregated_cloud = []
         for c in clusters:
-            if(len(c.data) > 250 and len(c.data) < 10000):
+            if(len(c.data) > 200 and len(c.data) < 10000):
                 for i in c.data:
                     aggregated_cloud.append(int_data[i])
 
@@ -64,13 +70,13 @@ class InitialViewEvaluationCore():
         #self.overlap_srv = rospy.ServiceProxy('/surface_based_object_learning/calculate_octree_overlap',CalculateOctreeOverlap)
         rospy.loginfo("VIEW EVAL: done")
 
-        #self.pc_topic = "/head_xtion/depth/points"
-        self.pc_topic = "/temporal_filtered_cloud"
+        self.pc_topic = "/head_xtion/depth_registered/points"
+        #self.pc_topic = "/head"
 
         self.rgb_topic = "/head_xtion/rgb/image_color"
 
         self.ptu_gazer_controller = PTUGazeController()
-        self.marker_publisher = rospy.Publisher("/initial_surface_view_evaluation/centroid", Marker)
+        self.marker_publisher = rospy.Publisher("/initial_surface_view_evaluation/centroid", Marker,queue_size=5)
         self.min_z_cutoff = 0.7
         self.max_z_cutoff = 1.7
         self.obs_resolution = 0.03
@@ -108,59 +114,65 @@ class InitialViewEvaluationCore():
         self.action_server.set_succeeded(re)
 
     def do_task(self,waypoint):
-        rospy.loginfo("VIEW EVAL: -- Executing initial view evaluation task at waypoint: " + waypoint)
-        obs = self.get_filtered_obs_from_wp(waypoint)
-        octo_obs = self.convert_cloud_to_octomap([obs])
-        normals = self.get_normals_from_octomap(octo_obs)
+        try:
+            rospy.loginfo("VIEW EVAL: -- Executing initial view evaluation task at waypoint: " + waypoint)
+            obs = self.get_filtered_obs_from_wp(waypoint)
+            octo_obs = self.convert_cloud_to_octomap([obs])
+            normals = self.get_normals_from_octomap(octo_obs)
 
-        rospy.loginfo("VIEW EVAL: got: " + str(len(normals)) + " up-facing normal points")
-        sx = 0
-        sy = 0
-        sz = 0
-        for k in normals:
-            sx+=k.x
-            sy+=k.y
-            sz+=k.z
-        sx/=len(normals)
-        sy/=len(normals)
-        sz/=len(normals)
-        centroid = [sx,sy,sz]
-        print("centroid: " + str(centroid))
-        centroid_marker = Marker()
-        centroid_marker.header.frame_id = "/map"
-        centroid_marker.type = Marker.SPHERE
-        centroid_marker.header.stamp = rospy.Time.now()
-        centroid_marker.pose.position.x = sx
-        centroid_marker.pose.position.y = sy
-        centroid_marker.pose.position.z = sz
-        centroid_marker.scale.x = 0.1
-        centroid_marker.scale.y = 0.1
-        centroid_marker.scale.z = 0.1
-        centroid_marker.color.a = 1.0
-        centroid_marker.color.r = 1.0
-        centroid_marker.color.g = 0.0
-        centroid_marker.color.b = 0.0
-        self.marker_publisher.publish(centroid_marker)
-        fp = []
-        for p in normals:
-            fp.append([p.x,p.y,p.z,255])
-        n_cloud = pc2.create_cloud(obs.header, obs.fields, fp)
-        #python_pcd.write_pcd("nrmls.pcd",n_cloud,overwrite=True)
+            rospy.loginfo("VIEW EVAL: got: " + str(len(normals)) + " up-facing normal points")
+            sx = 0
+            sy = 0
+            sz = 0
+            for k in normals:
+                sx+=k.x
+                sy+=k.y
+                sz+=k.z
+            sx/=len(normals)
+            sy/=len(normals)
+            sz/=len(normals)
+            centroid = [sx,sy,sz]
+            print("centroid: " + str(centroid))
+            centroid_marker = Marker()
+            centroid_marker.header.frame_id = "/map"
+            centroid_marker.type = Marker.SPHERE
+            centroid_marker.header.stamp = rospy.Time.now()
+            centroid_marker.pose.position.x = sx
+            centroid_marker.pose.position.y = sy
+            centroid_marker.pose.position.z = sz
+            centroid_marker.scale.x = 0.1
+            centroid_marker.scale.y = 0.1
+            centroid_marker.scale.z = 0.1
+            centroid_marker.color.a = 1.0
+            centroid_marker.color.r = 1.0
+            centroid_marker.color.g = 0.0
+            centroid_marker.color.b = 0.0
+            self.marker_publisher.publish(centroid_marker)
+            fp = []
+            for p in normals:
+                fp.append([p.x,p.y,p.z,255])
+            n_cloud = pc2.create_cloud(obs.header, obs.fields, fp)
+            #python_pcd.write_pcd("nrmls.pcd",n_cloud,overwrite=True)
 
-        pt_s = PointStamped()
-        pt_s.header.frame_id = "/map"
-        # behind robot
-        pt_s.point.x = sx
-        pt_s.point.y = sy
-        pt_s.point.z = sz
-        segmented_clouds,sweep_clouds,sweep_imgs = self.do_view_sweep_from_point(pt_s)
-        #roi_filtered_objects = self.get_filtered_roi_cloud(segmented_clouds)
-        object_octomap = self.convert_cloud_to_octomap([roi_filtered_objects])
-        #object_octomap.header = "/map"
-        # waypoint,filtered_cloud,filtered_octomap,normals,segmented_objects_octomap,sweep_clouds,sweep_imgs
-        self.log_task([waypoint,octo_obs,n_cloud,object_octomap,sweep_imgs])
-        return object_octomap
-
+            pt_s = PointStamped()
+            pt_s.header.frame_id = "/map"
+            # behind robot
+            pt_s.point.x = sx
+            pt_s.point.y = sy
+            pt_s.point.z = sz
+            segmented_clouds,sweep_clouds,sweep_imgs = self.do_view_sweep_from_point(pt_s)
+            roi_filtered_objects = self.get_filtered_roi_cloud(segmented_clouds)
+            object_octomap = self.convert_cloud_to_octomap([roi_filtered_objects])
+            #object_octomap.header = "/map"
+            # waypoint,filtered_cloud,filtered_octomap,normals,segmented_objects_octomap,sweep_clouds,sweep_imgs
+            self.log_task([waypoint,octo_obs,n_cloud,object_octomap,sweep_imgs])
+            return object_octomap
+        except Exception,e:
+            rospy.logerr(e)
+            rospy.sleep(1)
+            self.ptu_gazer_controller.reset_gaze()
+            rospy.sleep(1)
+            rospy.logerr("PTU has been reset")
 
     # includes a bunch of sleeps just to make super extra sure we don't get any camera blur due to all the movement
     def do_view_sweep_from_point(self,point):
@@ -186,8 +198,7 @@ class InitialViewEvaluationCore():
             rospy.sleep(2)
             cloud = rospy.wait_for_message(self.pc_topic,PointCloud2,timeout=10.0)
             sweep_clouds.append(cloud)
-            f_roi_cloud = self.get_filtered_roi_cloud([cloud])
-            segmented_cloud = self.segmentation.segment(f_roi_cloud)
+            segmented_cloud = self.segmentation.segment(cloud)
             segmented_map_cloud = self.transform_cloud_to_map(segmented_cloud)
             segmented_clouds.append(segmented_map_cloud)
             image = rospy.wait_for_message(self.rgb_topic,Image,timeout=10.0)
@@ -204,17 +215,17 @@ class InitialViewEvaluationCore():
         rp = rospy.wait_for_message("/robot_pose", geometry_msgs.msg.Pose, timeout=10.0)
 
         for cloud in cloud_set:
+            print("merging cloud and cropping to ROI")
             for p_in in pc2.read_points(cloud,field_names=["x","y","z","rgb"]):
                 pp = geometry_msgs.msg.Point()
                 pp.x = p_in[0]
                 pp.y = p_in[1]
                 pp.z = p_in[2]
+
+                # should be in map coords by here
                 if(pp.z > self.min_z_cutoff and pp.z < self.max_z_cutoff):
-                    pass
-                else:
-                    pp = float('nan')
-                point_set.append(pp)
-                raw_point_set.append(p_in)
+                    point_set.append(pp)
+                    raw_point_set.append(p_in)
 
         res = self.roi_srv(point_set,rp.position)
         print("done")

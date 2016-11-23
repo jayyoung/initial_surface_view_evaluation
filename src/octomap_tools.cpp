@@ -47,7 +47,7 @@ octomap_msgs::Octomap convert_pcd_to_octomap(std::vector<sensor_msgs::PointCloud
   // well, let me show you
   float octree_resolution = 0.02f;
   octomap::OcTree map(octree_resolution);
-  ros::Publisher octomap_pub = n.advertise<octomap_msgs::Octomap>("/initial_surface_view_evaluation/converted_octomaps", 1000);
+  ros::Publisher octomap_pub = n.advertise<octomap_msgs::Octomap>("/initial_surface_view_evaluation/converted_octomaps", 5);
 
   geometry_msgs::Pose robot_pose = *ros::topic::waitForMessage<geometry_msgs::Pose>("/robot_pose", ros::Duration(5));
 
@@ -66,6 +66,8 @@ octomap_msgs::Octomap convert_pcd_to_octomap(std::vector<sensor_msgs::PointCloud
       if(temp_cloud->points.size() == 0) {
         ROS_INFO("Skipping empty point cloud");
         continue;
+      } else {
+          ROS_INFO("Processing cloud in set");
       }
 
       pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_filtered_ptr (new pcl::PointCloud<pcl::PointXYZ>);
