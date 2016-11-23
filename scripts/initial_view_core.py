@@ -23,11 +23,13 @@ from initial_surface_view_evaluation.msg import *
 from segmentation_srv_definitions.srv import * # vienna seg
 import PyKDL
 import actionlib
+from bham_seg_filter.srv import *
+
 
 class SegmentationWrapper():
     def __init__(self):
         rospy.loginfo("VIEW EVAL: getting segmentation srv")
-        self.segmentation_srv = rospy.ServiceProxy("/pcl_segmentation_service/pcl_segmentation", segment, 10)
+        self.segmentation_srv = rospy.ServiceProxy("/bham_filtered_segmentation/segment", bham_seg, 10)
         rospy.loginfo("VIEW EVAL: done")
 
     def segment(self,input_cloud):
@@ -43,7 +45,7 @@ class SegmentationWrapper():
             if(len(c.data) > 500 and len(c.data) < 5000):
                 for i in c.data:
                     aggregated_cloud.append(int_data[i])
-                    
+
         rgb = pc2.create_cloud(input_cloud.header,input_cloud.fields,aggregated_cloud)
         rospy.loginfo("VIEW EVAL: added " + str(len(clusters)) + " clusters")
         #python_pcd.write_pcd("view.pcd",rgb,overwrite=True)
@@ -151,7 +153,7 @@ class InitialViewEvaluationCore():
         pt_s.point.y = sy
         pt_s.point.z = sz
         segmented_clouds,sweep_clouds,sweep_imgs = self.do_view_sweep_from_point(pt_s)
-        roi_filtered_objects = self.get_filtered_roi_cloud(segmented_clouds)
+        #roi_filtered_objects = self.get_filtered_roi_cloud(segmented_clouds)
         object_octomap = self.convert_cloud_to_octomap([roi_filtered_objects])
         #object_octomap.header = "/map"
         # waypoint,filtered_cloud,filtered_octomap,normals,segmented_objects_octomap,sweep_clouds,sweep_imgs
@@ -183,7 +185,8 @@ class InitialViewEvaluationCore():
             rospy.sleep(5)
             cloud = rospy.wait_for_message(self.pc_topic,PointCloud2,timeout=10.0)
             sweep_clouds.append(cloud)
-            segmented_cloud = self.segmentation.segment(cloud)
+            f_roi_cloud = self.get_filtered_roi_cloud(cloud)
+            segmented_cloud = self.segmentation.segment(f_roi_cloud)
             segmented_map_cloud = self.transform_cloud_to_map(segmented_cloud)
             segmented_clouds.append(segmented_map_cloud)
             image = rospy.wait_for_message(self.rgb_topic,Image,timeout=10.0)
@@ -201,13 +204,14 @@ class InitialViewEvaluationCore():
 
         for cloud in cloud_set:
             for p_in in pc2.read_points(cloud,field_names=["x","y","z","rgb"]):
-                pp = geometry_msgs.msg.Point()
-                pp.x = p_in[0]
-                pp.y = p_in[1]
-                pp.z = p_in[2]
+                pp = float('nan')
                 if(pp.z > self.min_z_cutoff and pp.z < self.max_z_cutoff):
-                    point_set.append(pp)
-                    raw_point_set.append(p_in)
+                    pp = geometry_msgs.msg.Point()
+                    pp.x = p_in[0]
+                    pp.y = p_in[1]
+                    pp.z = p_in[2]
+                point_set.append(pp)
+                raw_point_set.append(p_in)
 
         res = self.roi_srv(point_set,rp.position)
         print("done")
