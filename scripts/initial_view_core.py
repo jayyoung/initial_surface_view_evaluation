@@ -185,7 +185,7 @@ class InitialViewEvaluationCore():
             rospy.sleep(5)
             cloud = rospy.wait_for_message(self.pc_topic,PointCloud2,timeout=10.0)
             sweep_clouds.append(cloud)
-            f_roi_cloud = self.get_filtered_roi_cloud(cloud)
+            f_roi_cloud = self.get_filtered_roi_cloud([cloud])
             segmented_cloud = self.segmentation.segment(f_roi_cloud)
             segmented_map_cloud = self.transform_cloud_to_map(segmented_cloud)
             segmented_clouds.append(segmented_map_cloud)
