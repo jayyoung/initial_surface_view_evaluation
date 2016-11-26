@@ -45,7 +45,7 @@ octomap_msgs::Octomap convert_pcd_to_octomap(std::vector<sensor_msgs::PointCloud
   // when i was your age, we used strongly typed languages
   // "what's a type, grandad?"
   // well, let me show you
-  float octree_resolution = 0.02f;
+  float octree_resolution = 0.03f;
   octomap::OcTree map(octree_resolution);
   ros::Publisher octomap_pub = n.advertise<octomap_msgs::Octomap>("/initial_surface_view_evaluation/converted_octomaps", 5);
 
@@ -70,14 +70,16 @@ octomap_msgs::Octomap convert_pcd_to_octomap(std::vector<sensor_msgs::PointCloud
           ROS_INFO("Processing cloud in set");
       }
 
-      pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_filtered_ptr (new pcl::PointCloud<pcl::PointXYZ>);
-      pcl::RadiusOutlierRemoval<pcl::PointXYZ> outrem;
-      outrem.setInputCloud(temp_cloud);
-      outrem.setRadiusSearch(0.8);
-      outrem.setMinNeighborsInRadius (5);
-      outrem.setNegative(false);
-      outrem.filter (*cloud_filtered_ptr);
-      /*
+//	ROS_INFO("Doing some noise reduction");
+     // pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_filtered_ptr (new pcl::PointCloud<pcl::PointXYZ>);
+     // pcl::RadiusOutlierRemoval<pcl::PointXYZ> outrem;
+      //outrem.setInputCloud(temp_cloud);
+      //outrem.setRadiusSearch(0.8);
+      //outrem.setMinNeighborsInRadius (5);
+     // outrem.setNegative(false);
+      //outrem.filter (*cloud_filtered_ptr);
+
+/*
       pcl::StatisticalOutlierRemoval<pcl::PointXYZ> f;
       f.setInputCloud (temp_cloud);
       f.setMeanK (50);
@@ -86,13 +88,13 @@ octomap_msgs::Octomap convert_pcd_to_octomap(std::vector<sensor_msgs::PointCloud
       f.filter(*cloud_filtered_ptr);
       */
 
-      pcl::PCDWriter writer;
+     // pcl::PCDWriter writer;
     //  writer.write<pcl::PointXYZ> ("filtered.pcd", *cloud_filtered_ptr, false);
-      temp_cloud = cloud_filtered_ptr;
+  //    temp_cloud = cloud_filtered_ptr;
 
-      ROS_INFO("- Computing centroid");
-      Eigen::Vector4f centroid;
-      pcl::compute3DCentroid(*temp_cloud, centroid);
+      //ROS_INFO("- Computing centroid");
+     // Eigen::Vector4f centroid;
+    //  pcl::compute3DCentroid(*temp_cloud, centroid);
 
       // uh oh, should this be robot_pose?
     //  octomap::point3d octo_centroid(centroid[0],centroid[1],centroid[2]);
