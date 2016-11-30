@@ -21,6 +21,11 @@
 #include <pcl_ros/transforms.h>
 #include <pcl/io/pcd_io.h>
 #include <pcl/filters/statistical_outlier_removal.h>
+#include "pcl/kdtree/kdtree_flann.h"
+#include "pcl/features/normal_3d.h"
+#include "pcl/features/pfh.h"
+#include "pcl/keypoints/sift_keypoint.h"
+#include <pcl/registration/transforms.h>
 
 #include "initial_surface_view_evaluation/CalculateOctreeOverlap.h"
 #include "initial_surface_view_evaluation/ConvertCloudToOctomap.h"
@@ -126,53 +131,171 @@ octomap_msgs::Octomap convert_pcd_to_octomap(std::vector<sensor_msgs::PointCloud
 // calculates the octomap overlap between source and target
 // how many points from source are also in target?
 float calculate_octo_overlap(sensor_msgs::PointCloud2 source, sensor_msgs::PointCloud2 target) {
-  std::vector<sensor_msgs::PointCloud2> s;
-  std::vector<sensor_msgs::PointCloud2> t;
-  s.push_back(source);
-  t.push_back(target);
+  // Create some new point clouds to hold our data
+  pcl::PointCloud<pcl::PointXYZRGB>::Ptr points1 (new pcl::PointCloud<pcl::PointXYZRGB>);
+  pcl::PointCloud<pcl::PointXYZRGB>::Ptr downsampled1 (new pcl::PointCloud<pcl::PointXYZRGB>);
+  pcl::PointCloud<pcl::Normal>::Ptr normals1 (new pcl::PointCloud<pcl::Normal>);
+  pcl::PointCloud<pcl::PointWithScale>::Ptr keypoints1 (new pcl::PointCloud<pcl::PointWithScale>);
+  pcl::PointCloud<pcl::PFHSignature125>::Ptr descriptors1 (new pcl::PointCloud<pcl::PFHSignature125>);
+  pcl::PointCloud<pcl::PointXYZRGB>::Ptr points2 (new pcl::PointCloud<pcl::PointXYZRGB>);
+  pcl::PointCloud<pcl::PointXYZRGB>::Ptr downsampled2 (new pcl::PointCloud<pcl::PointXYZRGB>);
+  pcl::PointCloud<pcl::Normal>::Ptr normals2 (new pcl::PointCloud<pcl::Normal>);
+  pcl::PointCloud<pcl::PointWithScale>::Ptr keypoints2 (new pcl::PointCloud<pcl::PointWithScale>);
+  pcl::PointCloud<pcl::PFHSignature125>::Ptr descriptors2 (new pcl::PointCloud<pcl::PFHSignature125>);
 
-  octomap_msgs::Octomap source_octo = convert_pcd_to_octomap(s);
-  octomap_msgs::Octomap target_octo = convert_pcd_to_octomap(t);
-
-  // that API though
-  AbstractOcTree* source_tree = octomap_msgs::fullMsgToMap(source_octo);
-  AbstractOcTree* target_tree = octomap_msgs::fullMsgToMap(target_octo);
-
-  OcTree* source_octree = dynamic_cast<OcTree*>(source_tree);
-  OcTree* target_octree = dynamic_cast<OcTree*>(target_tree);
-
-
-  // the highest possible score is that all of the points from source are also in target
-  float source_nodes = 0;
-  float overlapping_nodes = 0;
-  for(OcTree::tree_iterator it = source_octree->begin_tree(), end=source_octree->end_tree(); it!= end; ++it)
-    {
-      source_nodes+=1;
-      point3d source_point = it.getCoordinate();
-      for(OcTree::tree_iterator itt = target_octree->begin_tree(), endt=target_octree->end_tree(); itt!= endt; ++itt)
-      {
-        point3d target_point = itt.getCoordinate();
-        float distance = source_point.distance(target_point);
-        if(distance <= source_octree->getResolution()) {
-          overlapping_nodes++;
-          break;
-        }
-      }
-
-    }
-
-  cout << " -- " << endl;
-  cout << "points in source cloud: " << source_nodes << endl;
-  cout << "overlapping nodes: " << overlapping_nodes << endl;
-
-  float degree = (100.0/source_nodes)*overlapping_nodes;
-
-  cout << "degree of overlap: " << degree << endl;
-  cout << " -- " << endl;
+  // Load the pair of point clouds
+  //std::stringstream ss1, ss2;
+  //ss1 << filename_base << "1.pcd";
+  //pcl::io::loadPCDFile (ss1.str (), *points1);
+  //ss2 << filename_base << "2.pcd";
+  //pcl::io::loadPCDFile (ss2.str (), *points2);
 
 
-  return degree;
+  pcl::PCLPointCloud2 source_pc2;
+  pcl_conversions::toPCL(source,source_pc2);
+  pcl::fromPCLPointCloud2(source_pc2,*points1);
+
+  pcl::PCLPointCloud2 target_pc2;
+  pcl_conversions::toPCL(target,target_pc2);
+  pcl::fromPCLPointCloud2(target_pc2,*points1);
+
+
+  // Downsample the cloud
+  const float voxel_grid_leaf_size = 0.01;
+  downsample (points1, voxel_grid_leaf_size, downsampled1);
+  downsample (points2, voxel_grid_leaf_size, downsampled2);
+  // Compute surface normals
+  const float normal_radius = 0.03;
+  compute_surface_normals (downsampled1, normal_radius, normals1);
+  compute_surface_normals (downsampled2, normal_radius, normals2);
+  // Compute keypoints
+  const float min_scale = 0.01;
+  const int nr_octaves = 3;
+  const int nr_octaves_per_scale = 3;
+  const float min_contrast = 10.0;
+  detect_keypoints (points1, min_scale, nr_octaves, nr_octaves_per_scale, min_contrast, keypoints1);
+  detect_keypoints (points2, min_scale, nr_octaves, nr_octaves_per_scale, min_contrast, keypoints2);
+  // Compute PFH features
+  const float feature_radius = 0.08;
+  compute_PFH_features_at_keypoints (downsampled1, normals1, keypoints1, feature_radius, descriptors1);
+  compute_PFH_features_at_keypoints (downsampled2, normals2, keypoints2, feature_radius, descriptors2);
+  // Find feature correspondences
+  std::vector<int> correspondences;
+  std::vector<float> correspondence_scores;
+  find_feature_correspondences (descriptors1, descriptors2, correspondences, correspondence_scores);
+  // Print out ( number of keypoints / number of points )
+  std::cout << "First cloud: Found " << keypoints1->size () << " keypoints "
+            << "out of " << downsampled1->size () << " total points." << std::endl;
+
+  std::cout << "Second cloud: Found " << keypoints2->size () << " keypoints "
+            << "out of " << downsampled2->size () << " total points." << std::endl;
+  // Visualize the two point clouds and their feature correspondences
+
+  return correspondences.size();
 }
+
+
+void
+downsample (pcl::PointCloud<pcl::PointXYZRGB>::Ptr &points, float leaf_size,
+            pcl::PointCloud<pcl::PointXYZRGB>::Ptr &downsampled_out)
+{
+  pcl::VoxelGrid<pcl::PointXYZRGB> vox_grid;
+  vox_grid.setLeafSize (leaf_size, leaf_size, leaf_size);
+  vox_grid.setInputCloud (points);
+  vox_grid.filter (*downsampled_out);
+}
+
+
+void
+compute_surface_normals (pcl::PointCloud<pcl::PointXYZRGB>::Ptr &points, float normal_radius,
+                         pcl::PointCloud<pcl::Normal>::Ptr &normals_out)
+{
+  pcl::NormalEstimation<pcl::PointXYZRGB, pcl::Normal> norm_est;
+  // Use a FLANN-based KdTree to perform neighborhood searches
+  //norm_est.setSearchMethod (pcl::KdTreeFLANN<pcl::PointXYZRGB>::Ptr (new pcl::KdTreeFLANN<pcl::PointXYZRGB>));
+  norm_est.setSearchMethod (pcl::search::KdTree<pcl::PointXYZRGB>::Ptr (new pcl::search::KdTree<pcl::PointXYZRGB>));
+  // Specify the size of the local neighborhood to use when computing the surface normals
+  norm_est.setRadiusSearch (normal_radius);
+  // Set the input points
+  norm_est.setInputCloud (points);
+  // Estimate the surface normals and store the result in "normals_out"
+  norm_est.compute (*normals_out);
+}
+
+
+void
+detect_keypoints (pcl::PointCloud<pcl::PointXYZRGB>::Ptr &points,
+                  float min_scale, int nr_octaves, int nr_scales_per_octave, float min_contrast,
+                  pcl::PointCloud<pcl::PointWithScale>::Ptr &keypoints_out)
+{
+  pcl::SIFTKeypoint<pcl::PointXYZRGB, pcl::PointWithScale> sift_detect;
+  // Use a FLANN-based KdTree to perform neighborhood searches
+  sift_detect.setSearchMethod (pcl::search::KdTree<pcl::PointXYZRGB>::Ptr (new pcl::search::KdTree<pcl::PointXYZRGB>));
+  // Set the detection parameters
+  sift_detect.setScales (min_scale, nr_octaves, nr_scales_per_octave);
+  sift_detect.setMinimumContrast (min_contrast);
+  // Set the input
+  sift_detect.setInputCloud (points);
+  // Detect the keypoints and store them in "keypoints_out"
+  sift_detect.compute (*keypoints_out);
+}
+
+
+void
+compute_PFH_features_at_keypoints (pcl::PointCloud<pcl::PointXYZRGB>::Ptr &points,
+                                   pcl::PointCloud<pcl::Normal>::Ptr &normals,
+                                   pcl::PointCloud<pcl::PointWithScale>::Ptr &keypoints, float feature_radius,
+                                   pcl::PointCloud<pcl::PFHSignature125>::Ptr &descriptors_out)
+{
+  // Create a PFHEstimation object
+  pcl::PFHEstimation<pcl::PointXYZRGB, pcl::Normal, pcl::PFHSignature125> pfh_est;
+  // Set it to use a FLANN-based KdTree to perform its neighborhood searches
+  pfh_est.setSearchMethod (pcl::search::KdTree<pcl::PointXYZRGB>::Ptr (new pcl::search::KdTree<pcl::PointXYZRGB>));
+  // Specify the radius of the PFH feature
+  pfh_est.setRadiusSearch (feature_radius);
+  /* This is a little bit messy: since our keypoint detection returns PointWithScale points, but we want to
+   * use them as an input to our PFH estimation, which expects clouds of PointXYZRGB points.  To get around this,
+   * we'll use copyPointCloud to convert "keypoints" (a cloud of type PointCloud<PointWithScale>) to
+   * "keypoints_xyzrgb" (a cloud of type PointCloud<PointXYZRGB>).  Note that the original cloud doesn't have any RGB
+   * values, so when we copy from PointWithScale to PointXYZRGB, the new r,g,b fields will all be zero.
+   */
+
+  pcl::PointCloud<pcl::PointXYZRGB>::Ptr keypoints_xyzrgb (new pcl::PointCloud<pcl::PointXYZRGB>);
+  pcl::copyPointCloud (*keypoints, *keypoints_xyzrgb);
+  // Use all of the points for analyzing the local structure of the cloud
+  pfh_est.setSearchSurface (points);
+  pfh_est.setInputNormals (normals);
+  // But only compute features at the keypoints
+  pfh_est.setInputCloud (keypoints_xyzrgb);
+  // Compute the features
+  pfh_est.compute (*descriptors_out);
+}
+
+
+void
+find_feature_correspondences (pcl::PointCloud<pcl::PFHSignature125>::Ptr &source_descriptors,
+                              pcl::PointCloud<pcl::PFHSignature125>::Ptr &target_descriptors,
+                              std::vector<int> &correspondences_out, std::vector<float> &correspondence_scores_out)
+{
+  // Resize the output vector
+  correspondences_out.resize (source_descriptors->size ());
+  correspondence_scores_out.resize (source_descriptors->size ());
+  // Use a KdTree to search for the nearest matches in feature space
+  pcl::search::KdTree<pcl::PFHSignature125> descriptor_kdtree;
+  descriptor_kdtree.setInputCloud (target_descriptors);
+  // Find the index of the best match for each keypoint, and store it in "correspondences_out"
+  const int k = 1;
+  std::vector<int> k_indices (k);
+  std::vector<float> k_squared_distances (k);
+  for (size_t i = 0; i < source_descriptors->size (); ++i)
+  {
+    descriptor_kdtree.nearestKSearch (*source_descriptors, i, k, k_indices, k_squared_distances);
+    correspondences_out[i] = k_indices[0];
+    correspondence_scores_out[i] = k_squared_distances[0];
+  }
+}
+
+
 
 std::vector<geometry_msgs::Point> extract_normals_from_octomap(octomap_msgs::Octomap& in)
 {
