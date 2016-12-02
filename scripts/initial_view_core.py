@@ -181,7 +181,7 @@ class InitialViewEvaluationCore():
         sweep_clouds = []
         sweep_imgs = []
         segmented_clouds = []
-        sweep_degree = 30
+        sweep_degree = 15
         angles = [sweep_degree,-sweep_degree,-sweep_degree]
 
         self.ptu_gazer_controller.reset_gaze()
