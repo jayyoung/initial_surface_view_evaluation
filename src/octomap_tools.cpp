@@ -348,7 +348,7 @@ float add_calculate_octo_overlap(sensor_msgs::PointCloud2 source, sensor_msgs::P
   pcl::fromPCLPointCloud2(target_pc2,*points2);
   ROS_INFO("Done!");
 
-  const float voxel_grid_leaf_size = 0.001;
+  const float voxel_grid_leaf_size = 0.003;
   downsample(points1, voxel_grid_leaf_size, downsampled1);
 
   ROS_INFO("Downsampling input B");
@@ -532,7 +532,7 @@ if(skip_visuals == false) {
   //std::cout << "TOTAL SCORE: " << total_cor << std::endl;
   //return good_scores;
   std::cout << "OCTO SCORE: " << octo_score << std::endl;
-  return octo_score*good_scores;
+  return good_scores;
 
 } else {
   std::cout << "OCTO SCORE: " << octo_score << std::endl;
