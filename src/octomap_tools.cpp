@@ -528,31 +528,14 @@ if(skip_visuals == false) {
 
   //float total_cor = good_scores/(float)keypoints1->size();
   std::cout << "CORRESPONDENCES: " << correspondences.size() << " KEYPOINTS: " << keypoints1->size() << std::endl;
-  std::cout<< "VISUAL FEATURE SCORE: " << good_scores << std::endl;
+  std::cout << "VISUAL FEATURE SCORE: " << good_scores << std::endl;
   //std::cout << "TOTAL SCORE: " << total_cor << std::endl;
   //return good_scores;
   std::cout << "OCTO SCORE: " << octo_score << std::endl;
-  return good_scores;
+  return octo_score*good_scores;
 
-} else {
-  std::cout << "OCTO SCORE: " << octo_score << std::endl;
-
-  return octo_score;
 }
-
-  /*float combined_score = 0;
-  if(good_scores == 0) {
-    good_scores = 1;
-    ROS_INFO("No visual keypoints found, so just using positional information instead.");
-  }
-  if(octo_score <= 0.25f) {
-    ROS_INFO("Bad octomap score detected");
-  }
-*/
-
   return octo_score;
-
-
 }
 
 

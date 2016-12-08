@@ -24,13 +24,15 @@ from segmentation_srv_definitions.srv import * # vienna seg
 import PyKDL
 import actionlib
 from bham_seg_filter.srv import *
-
+from object_interestingness_estimator.srv import *
 
 class SegmentationWrapper():
     def __init__(self):
         rospy.loginfo("VIEW EVAL: getting segmentation srv")
         self.segmentation_srv = rospy.ServiceProxy("/bham_filtered_segmentation/segment", bham_seg, 10)
         rospy.loginfo("VIEW EVAL: done")
+        self.do_interest_filter = True
+        self.interest_threshold = 1
 
     def segment(self,input_cloud):
         rospy.loginfo("VIEW EVAL: segmenting")
@@ -38,6 +40,8 @@ class SegmentationWrapper():
 
         rospy.wait_for_service('/get_closest_roi_to_robot',10)
         roicl = rospy.ServiceProxy('/get_closest_roi_to_robot',GetROIClosestToRobot)
+        rospy.wait_for_service('/object_interestingness_estimator/estimate',10)
+        interest_srv = rospy.ServiceProxy('/object_interestingness_estimator/estimate',EstimateInterest)
         rp = rospy.wait_for_message("/robot_pose",Pose,10)
         roip = roicl(pose=rp.position)
 
@@ -48,9 +52,21 @@ class SegmentationWrapper():
         int_data = list(raw_cloud)
         aggregated_cloud = []
         for c in clusters:
-            if(len(c.data) > 200 and len(c.data) < 10000):
+            if(len(c.data) >= 200 and len(c.data) < 15000):
+                t_cloud = []
                 for i in c.data:
-                    aggregated_cloud.append(int_data[i])
+                    if(self.do_interest_filter is False):
+                        aggregated_cloud.append(int_data[i])
+                    else:
+                        t_cloud.append(int_data[i])
+
+                if(self.do_interest_filter is True):
+                    t = pc2.create_cloud(input_cloud.header,input_cloud.fields,t_cloud)
+                    interest_points = interest_srv(t)
+                    if(interest_points >= self.interest_threshold):
+                        for k in c.data:
+                            aggregated_cloud.append(int_data[k])
+
 
         rgb = pc2.create_cloud(input_cloud.header,input_cloud.fields,aggregated_cloud)
         rospy.loginfo("VIEW EVAL: added " + str(len(clusters)) + " clusters")
