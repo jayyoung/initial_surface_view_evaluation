@@ -63,7 +63,7 @@ class SegmentationWrapper():
                 if(self.do_interest_filter is True):
                     t = pc2.create_cloud(input_cloud.header,input_cloud.fields,t_cloud)
                     interest_points = interest_srv(t)
-                    if(interest_points >= self.interest_threshold):
+                    if(interest_points.output.data >= self.interest_threshold):
                         for k in c.data:
                             aggregated_cloud.append(int_data[k])
 

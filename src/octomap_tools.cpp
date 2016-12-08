@@ -455,7 +455,7 @@ float calculate_octo_overlap(sensor_msgs::PointCloud2 source, sensor_msgs::Point
 
   ROS_INFO("Downsampling input A");
   // Downsample the cloud
-  const float voxel_grid_leaf_size = 0.003;
+  const float voxel_grid_leaf_size = 0.01;
   downsample(points1_filtered, voxel_grid_leaf_size, downsampled1);
   //downsample(1.0);
   ROS_INFO("Downsampling input B");
@@ -465,7 +465,7 @@ float calculate_octo_overlap(sensor_msgs::PointCloud2 source, sensor_msgs::Point
   ROS_INFO("Done!");
 
   ROS_INFO("Computing surface normals");
-  const float normal_radius = 0.03;
+  const float normal_radius = 0.02;
   compute_surface_normals (downsampled1, normal_radius, normals1);
   ROS_INFO("Done input A");
   compute_surface_normals (downsampled2, normal_radius, normals2);
@@ -491,7 +491,7 @@ float calculate_octo_overlap(sensor_msgs::PointCloud2 source, sensor_msgs::Point
 if(skip_visuals == false) {
 
   // Compute PFH features
-  const float feature_radius = 0.06;
+  const float feature_radius = 0.03;
     ROS_INFO("Computing PFH features at the keypoints I found");
   compute_PFH_features_at_keypoints (downsampled1, normals1, keypoints1, feature_radius, descriptors1);
   compute_PFH_features_at_keypoints (downsampled2, normals2, keypoints2, feature_radius, descriptors2);
