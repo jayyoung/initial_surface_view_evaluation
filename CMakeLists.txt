@@ -144,6 +144,8 @@ include_directories(
 ## Declare a C++ executable
 add_executable(octomap_tools src/octomap_tools.cpp)
 
+add_dependencies(octomap_tools ${PROJECT_NAME}_gencpp)
+
 ## Add cmake target dependencies of the executable
 ## same as for the library above
 # add_dependencies(initial_surface_view_evaluation_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
