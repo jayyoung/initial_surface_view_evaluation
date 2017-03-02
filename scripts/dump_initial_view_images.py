@@ -25,6 +25,7 @@ if __name__ == '__main__':
         for img in sc[0].sweep_imgs:
             print("\t writing view")
             im = bridge.imgmsg_to_cv2(img)
+	    im = cv2.cvtColor(im,cv2.COLOR_BGR2RGB)
             cv2.imwrite("initial_views_dump/"+episode+"/view_"+str(int(sc[0].sweep_imgs.index(img)))+'.jpeg',im)
 
     print("all done!")

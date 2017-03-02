@@ -31,7 +31,7 @@ class SegmentationWrapper():
         rospy.loginfo("VIEW EVAL: getting segmentation srv")
         self.segmentation_srv = rospy.ServiceProxy("/bham_filtered_segmentation/segment", bham_seg, 10)
         rospy.loginfo("VIEW EVAL: done")
-        self.do_interest_filter = True
+        self.do_interest_filter = False
         self.interest_threshold = 1
 
     def segment(self,input_cloud):
@@ -278,6 +278,8 @@ class InitialViewEvaluationCore():
                 point_set.append(pp)
                 raw_point_set.append(p_in)
 
+	#rp.position.x = -9999
+        rospy.loginfo("SENDING FILTER POINT: " + str(rp.position))
         res = self.roi_srv(point_set,rp.position)
         print("done")
         print("size of point set: " + str(len(raw_point_set)))
