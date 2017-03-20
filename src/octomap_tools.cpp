@@ -348,7 +348,7 @@ float add_calculate_octo_overlap(sensor_msgs::PointCloud2 source, sensor_msgs::P
   pcl::fromPCLPointCloud2(target_pc2,*points2);
   ROS_INFO("Done!");
 
-  const float voxel_grid_leaf_size = 0.003;
+  const float voxel_grid_leaf_size = 0.05;
   downsample(points1, voxel_grid_leaf_size, downsampled1);
 
   ROS_INFO("Downsampling input B");
@@ -517,9 +517,9 @@ if(skip_visuals == false) {
   {
     std::cout << correspondences[i] << " \t\t " << correspondence_scores[i] << std::endl;
 
-    if(correspondence_scores[i] <= 0.35f) {
-      good_scores+=1;
-    }
+    //if(correspondence_scores[i] <= 1.0) {
+      good_scores+=correspondence_scores[i];
+    //}
 
   }
 
