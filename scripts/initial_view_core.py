@@ -24,7 +24,7 @@ from segmentation_srv_definitions.srv import * # vienna seg
 import PyKDL
 import actionlib
 from bham_seg_filter.srv import *
-from object_interestingness_estimator.srv import *
+#from object_interestingness_estimator.srv import *
 
 class SegmentationWrapper():
     def __init__(self):
@@ -40,8 +40,8 @@ class SegmentationWrapper():
 
         rospy.wait_for_service('/get_closest_roi_to_robot',10)
         roicl = rospy.ServiceProxy('/get_closest_roi_to_robot',GetROIClosestToRobot)
-        rospy.wait_for_service('/object_interestingness_estimator/estimate',10)
-        interest_srv = rospy.ServiceProxy('/object_interestingness_estimator/estimate',EstimateInterest)
+        #rospy.wait_for_service('/object_interestingness_estimator/estimate',10)
+        #interest_srv = rospy.ServiceProxy('/object_interestingness_estimator/estimate',EstimateInterest)
         rp = rospy.wait_for_message("/robot_pose",Pose,10)
         roip = roicl(pose=rp.position)
 
@@ -62,7 +62,7 @@ class SegmentationWrapper():
 
                 if(self.do_interest_filter is True):
                     t = pc2.create_cloud(input_cloud.header,input_cloud.fields,t_cloud)
-                    interest_points = interest_srv(t)
+                #    interest_points = interest_srv(t)
                     if(interest_points.output.data >= self.interest_threshold):
                         for k in c.data:
                             aggregated_cloud.append(int_data[k])

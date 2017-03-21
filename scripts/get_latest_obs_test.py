@@ -16,9 +16,8 @@ if __name__ == '__main__':
     # callback chain to deal with storing *objects*
     print("waiting for service")
    
-
     get_obs = rospy.ServiceProxy('/semantic_map_publisher/SemanticMapPublisher/ObservationService',ObservationService)
-    obs = get_obs("WayPoint17",0.03)    
+    obs = get_obs("WayPoint17",0.03)
     print("got something" + str(obs.cloud.header))
     print("num points in cloud: " + str(len(obs.cloud.data)))
 
@@ -27,7 +26,7 @@ if __name__ == '__main__':
 
     rp = rospy.wait_for_message("/robot_pose", geometry_msgs.msg.Pose, timeout=10.0)
 
-    roi_srv(    
+    roi_srv(
 
 
     #rospy.spin()
