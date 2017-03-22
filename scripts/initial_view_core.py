@@ -24,55 +24,116 @@ from segmentation_srv_definitions.srv import * # vienna seg
 import PyKDL
 import actionlib
 from bham_seg_filter.srv import *
-#from object_interestingness_estimator.srv import *
-
+import cv2
+import image_geometry
+from cv_bridge import CvBridge, CvBridgeError
 class SegmentationWrapper():
     def __init__(self):
         rospy.loginfo("VIEW EVAL: getting segmentation srv")
         self.segmentation_srv = rospy.ServiceProxy("/bham_filtered_segmentation/segment", bham_seg, 10)
         rospy.loginfo("VIEW EVAL: done")
         self.do_interest_filter = False
-        self.interest_threshold = 1
+        self.interest_threshold = 20
+        self.surf_filter = cv2.SURF(1000)
+        self.camera_model = image_geometry.PinholeCameraModel()
+        self.camera_msg = self.get_camera_info_topic()
+        self.camera_model.fromCameraInfo(self.camera_msg)
+        self.bridge = CvBridge()
 
-    def segment(self,input_cloud):
+
+    def segment(self,input_cloud,input_image):
         rospy.loginfo("VIEW EVAL: segmenting")
         # segment scene
-
+        input_image = self.bridge.imgmsg_to_cv2(input_image)
         rospy.wait_for_service('/get_closest_roi_to_robot',10)
         roicl = rospy.ServiceProxy('/get_closest_roi_to_robot',GetROIClosestToRobot)
         #rospy.wait_for_service('/object_interestingness_estimator/estimate',10)
         #interest_srv = rospy.ServiceProxy('/object_interestingness_estimator/estimate',EstimateInterest)
         rp = rospy.wait_for_message("/robot_pose",Pose,10)
         roip = roicl(pose=rp.position)
-
+        rospy.loginfo("VIEW EVAL: Beginning")
         output = self.segmentation_srv(cloud=input_cloud,posearray=roip.output)
         clusters = output.clusters_indices
         # return segments as a list of pointcloud2 objects
         raw_cloud = pc2.read_points(input_cloud)
         int_data = list(raw_cloud)
         aggregated_cloud = []
+        rgb_points = []
+        rospy.loginfo("Processing Results")
+        ## quick and dirty, fix up later ##
+        rgb_min_x = 90000
+        rgb_max_x = 0
+        rgb_min_y = 90000
+        rgb_max_y = 0
+        added_clusters = 0
         for c in clusters:
+            rospy.loginfo("Evaluating Cluster")
             if(len(c.data) >= 200 and len(c.data) < 15000):
                 t_cloud = []
-                for i in c.data:
-                    if(self.do_interest_filter is False):
-                        aggregated_cloud.append(int_data[i])
-                    else:
-                        t_cloud.append(int_data[i])
+                is_interesting = False
 
-                if(self.do_interest_filter is True):
-                    t = pc2.create_cloud(input_cloud.header,input_cloud.fields,t_cloud)
-                #    interest_points = interest_srv(t)
-                    if(interest_points.output.data >= self.interest_threshold):
-                        for k in c.data:
-                            aggregated_cloud.append(int_data[k])
+                for i in c.data:
+                    point = int_data[i]
+                    rgb_point = self.camera_model.project3dToPixel((point[0], point[1], point[2]))
+                    rgb_x = int(rgb_point[0])
+                    rgb_y = int(rgb_point[1])
+                    if(rgb_x < rgb_min_x):
+                        rgb_min_x = rgb_x
+                    if(rgb_y < rgb_min_y):
+                        rgb_min_y = rgb_y
+                    if(rgb_x > rgb_max_x):
+                        rgb_max_x = rgb_x
+                    if(rgb_y > rgb_max_y):
+                        rgb_max_y = rgb_y
+                padding = 48
+                y_start = rgb_min_y-padding
+                y_end = rgb_max_y+padding
+                x_start = rgb_min_x-padding
+                x_end = rgb_max_x+padding
+                if(y_end > 480):
+                    y_end = 480
+                if(x_end > 640):
+                    x_end = 640
+                if(y_start < 0):
+                    y_start = 0
+                if(x_start < 0):
+                    x_start = 0
+                segment_image_cropped = input_image[int(y_start):int(y_end), int(x_start):int(x_end)]
+
+                kp, des = self.surf_filter.detectAndCompute(segment_image_cropped,None)
+                rospy.loginfo("kp:" + str(len(kp)))
+                if(len(kp) >= self.interest_threshold):
+                    is_interesting = True
+
+                if(is_interesting):
+                    added_clusters+=1
+                    for i in c.data:
+                        aggregated_cloud.append(int_data[i])
 
 
         rgb = pc2.create_cloud(input_cloud.header,input_cloud.fields,aggregated_cloud)
-        rospy.loginfo("VIEW EVAL: added " + str(len(clusters)) + " clusters")
+        rospy.loginfo("VIEW EVAL: added " + str(added_clusters) + " clusters")
         #python_pcd.write_pcd("view.pcd",rgb,overwrite=True)
         rospy.loginfo("VIEW EVAL: done")
         return rgb
+
+    def get_camera_info_topic(self):
+        camera_msg = None
+        try:
+            camera_msg = rospy.wait_for_message("/head_xtion/depth_registered/sw_registered/camera_info",  CameraInfo, timeout=2)
+            return camera_msg
+        except Exception,e:
+            rospy.loginfo("LEARNING CORE: couldn't find /head_xtion/depth_registered/sw_registered/camera_info")
+
+        if(not camera_msg):
+            try:
+                camera_msg = rospy.wait_for_message("/head_xtion/depth_registered/camera_info",  CameraInfo, timeout=2)
+                rospy.loginfo("LEARNING CORE: found /head_xtion/depth_registered/camera_info")
+                return camera_msg
+            except Exception,e:
+                rospy.loginfo("LEARNING CORE: couldn't find /head_xtion/depth_registered/camera_info")
+
+        return None
 
 class InitialViewEvaluationCore():
     def __init__(self):
@@ -213,13 +274,13 @@ class InitialViewEvaluationCore():
             #rospy.loginfo("sleeping to give temporal smoothing something to look at")
             rospy.sleep(2)
             try:
+                image = rospy.wait_for_message(self.rgb_topic,Image,timeout=10.0)
+                sweep_imgs.append(image)
                 cloud = rospy.wait_for_message(self.pc_topic,PointCloud2,timeout=10.0)
-                segmented_cloud = self.segmentation.segment(cloud)
+                segmented_cloud = self.segmentation.segment(cloud,image)
                 sweep_clouds.append(cloud)
                 segmented_map_cloud = self.transform_cloud_to_map(segmented_cloud)
                 segmented_clouds.append(segmented_map_cloud)
-                image = rospy.wait_for_message(self.rgb_topic,Image,timeout=10.0)
-                sweep_imgs.append(image)
             except Exception,e:
                 rospy.logerr("Unable to perform this view")
                 rospy.logerr(e)
