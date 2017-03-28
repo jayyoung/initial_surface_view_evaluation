@@ -296,7 +296,7 @@ class InitialViewEvaluationCore():
         rp = rospy.wait_for_message("/robot_pose", geometry_msgs.msg.Pose, timeout=10.0)
 
         for cloud in cloud_set:
-            print("merging cloud and cropping to ROI")
+            rospy.loginfo("merging cloud and cropping to ROI")
             for p_in in pc2.read_points(cloud,field_names=["x","y","z","rgb"]):
                 pp = geometry_msgs.msg.Point()
                 pp.x = p_in[0]
@@ -309,12 +309,12 @@ class InitialViewEvaluationCore():
                     raw_point_set.append(p_in)
 
         res = self.roi_srv(point_set,rp.position)
-        print("done")
-        print("size of point set: " + str(len(raw_point_set)))
-        print("size of result: " + str(len(res.result)))
-        print("points in roi: " + str(sum(res.result)))
+        rospy.loginfo("done")
+        rospy.loginfo("size of point set: " + str(len(raw_point_set)))
+        rospy.loginfo("size of result: " + str(len(res.result)))
+        rospy.loginfo("points in roi: " + str(sum(res.result)))
         filtered_points = list(compress(raw_point_set,res.result))
-        print("size of filtered: " + str(len(filtered_points)))
+        rospy.loginfo("size of filtered: " + str(len(filtered_points)))
         rgb = pc2.create_cloud(cloud_set[0].header,cloud_set[0].fields,filtered_points)
         return rgb
 
@@ -342,16 +342,17 @@ class InitialViewEvaluationCore():
 	#rp.position.x = -9999
         rospy.loginfo("SENDING FILTER POINT: " + str(rp.position))
         res = self.roi_srv(point_set,rp.position)
-        print("done")
-        print("size of point set: " + str(len(raw_point_set)))
-        print("size of result: " + str(len(res.result)))
-        print("points in roi: " + str(sum(res.result)))
+        rospy.loginfo("done")
+        rospy.loginfo("size of point set: " + str(len(raw_point_set)))
+        rospy.loginfo("size of result: " + str(len(res.result)))
+        rospy.loginfo("points in roi: " + str(sum(res.result)))
         filtered_points = list(compress(raw_point_set,res.result))
-        print("size of filtered: " + str(len(filtered_points)))
+        rospy.loginfo("size of filtered: " + str(len(filtered_points)))
         rgb = pc2.create_cloud(r.cloud.header,r.cloud.fields,filtered_points)
         return rgb
 
     def convert_cloud_to_octomap(self,cloud):
+        rospy.loginfo("Converting Cloud to Octomap")
         octo = self.conv_octomap(cloud)
         return octo.octomap
 

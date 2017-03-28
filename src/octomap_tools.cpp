@@ -69,7 +69,7 @@ octomap_msgs::Octomap convert_pcd_to_octomap(std::vector<sensor_msgs::PointCloud
   // little bit of a hack, this is just a guesstimate of how high up the PTU is
   robot_pose.position.z = 1.76;
 
-
+  ROS_INFO("Getting Ready");
   for(std::vector<sensor_msgs::PointCloud2>::iterator iter = input_clouds.begin(), end = input_clouds.end(); iter != end; ++iter) {
       sensor_msgs::PointCloud2 input_cloud = *iter;
 
