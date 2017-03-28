@@ -160,7 +160,7 @@ class InitialViewEvaluationCore():
         self.initial_view_store = MessageStoreProxy(database="initial_surface_views", collection="logged_views")
         self.segmentation = SegmentationWrapper()
         self.transformation_store = TransformListener()
-        rospy.sleep(2)
+        rospy.sleep(5)
         self.action_server = actionlib.SimpleActionServer("/surface_based_object_learning/evaluate_surface", EvaluateSurfaceAction,
         execute_cb=self.do_task_cb, auto_start = False)
         self.action_server.start()
@@ -366,9 +366,10 @@ class InitialViewEvaluationCore():
             rospy.loginfo("un-breaking this")
             cloud.header.frame_id = "head_xtion_depth_optical_frame"
 
+        self.transformation_store = TransformListener()
+        rospy.sleep(5)
         t = self.transformation_store.getLatestCommonTime("map", cloud.header.frame_id)
         tr_r = self.transformation_store.lookupTransform("map", cloud.header.frame_id, t)
-
 
         tr = Transform()
         tr.translation = Vector3(tr_r[0][0],tr_r[0][1],tr_r[0][2])
