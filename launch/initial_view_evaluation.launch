@@ -1,6 +1,9 @@
 <launch>
 
-	<node name="view_eval_actionserver" pkg="initial_surface_view_evaluation" respawn="true" type="initial_view_core.py" output="screen"/>
-	<node name="view_eval_octotools" pkg="initial_surface_view_evaluation" respawn="true" type="octomap_tools" output="screen"/>
+
+	<arg name="camera_info_topic" default="/head_xtion/depth_registered/camera_info" />
+
+	<node name="view_eval_actionserver" pkg="initial_surface_view_evaluation" respawn="true" type="initial_view_core.py" args="$(arg camera_info_topic)" output="screen"/>
+	<node name="view_eval_octotools" pkg="initial_surface_view_evaluation" respawn="true" type="octomap_tools_node" output="screen"/>
 
 </launch>

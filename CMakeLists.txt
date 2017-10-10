@@ -66,6 +66,7 @@ find_package(catkin REQUIRED COMPONENTS
    CalculateOctreeOverlap.srv
    ConvertCloudToOctomap.srv
    ExtractNormalsFromOctomap.srv
+   GazeAtMapPoint.srv
  )
 
 ## Generate actions in the 'action' folder
@@ -142,16 +143,16 @@ include_directories(
 # add_dependencies(initial_surface_view_evaluation ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Declare a C++ executable
-add_executable(octomap_tools src/octomap_tools.cpp)
+add_executable(octomap_tools_node src/octomap_tools.cpp)
 
-add_dependencies(octomap_tools ${PROJECT_NAME}_gencpp)
+add_dependencies(octomap_tools_node ${PROJECT_NAME}_gencpp)
 
 ## Add cmake target dependencies of the executable
 ## same as for the library above
 # add_dependencies(initial_surface_view_evaluation_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Specify libraries to link a library or executable target against
- target_link_libraries(octomap_tools
+ target_link_libraries(octomap_tools_node
    ${catkin_LIBRARIES}
  )
 

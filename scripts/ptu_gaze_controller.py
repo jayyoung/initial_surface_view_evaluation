@@ -16,14 +16,22 @@ class PTUGazeController:
 
         def __init__(self,ptu_speed=10):
             print("-- PTU gaze controller created")
-	    self.ptu_speed = ptu_speed
+            self.ptu_speed = ptu_speed
 
         def reset_gaze(self):
             rospy.loginfo("Trying to reset gaze")
-            ptuClient = actionlib.SimpleActionClient('ResetPtu',scitos_ptu.msg.PtuResetAction)
+            #ptuClient = actionlib.SimpleActionClient('ResetPtu',scitos_ptu.msg.PtuResetAction)
+            #ptuClient.wait_for_server()
+            #goal = scitos_ptu.msg.PtuResetGoal()
+            #ptuClient.send_goal(goal)
+            #ptuClient.wait_for_result()
+            ptuClient = actionlib.SimpleActionClient('SetPTUState',scitos_ptu.msg.PtuGotoAction)
             ptuClient.wait_for_server()
-
-            goal = scitos_ptu.msg.PtuResetGoal()
+            goal = scitos_ptu.msg.PtuGotoGoal()
+            goal.tilt = 0
+            goal.tilt_vel = 10
+            goal.pan = 0
+            goal.pan_vel = 10
             ptuClient.send_goal(goal)
             ptuClient.wait_for_result()
             rospy.loginfo("Done")
@@ -64,9 +72,9 @@ class PTUGazeController:
             tilt_ref_frame = '/head_xtion_link'
 
             tfs = tf.TransformListener()
-            # Wait for tf info (timeout in 5 seconds)
-            tfs.waitForTransform(pan_ref_frame, target.header.frame_id, rospy.Time(), rospy.Duration(5.0))
-            tfs.waitForTransform(tilt_ref_frame, target.header.frame_id, rospy.Time(), rospy.Duration(5.0))
+            # Wait for tf info (timeout in 15 seconds)
+            tfs.waitForTransform(pan_ref_frame, target.header.frame_id, rospy.Time(), rospy.Duration(15.0))
+            tfs.waitForTransform(tilt_ref_frame, target.header.frame_id, rospy.Time(), rospy.Duration(15.0))
 
             # Transform target point to pan reference frame & retrieve the pan angle
             pan_target = tfs.transformPoint(pan_ref_frame, target)

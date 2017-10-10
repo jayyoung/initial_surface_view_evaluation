@@ -3,6 +3,8 @@ import roslib
 import rospy
 from sensor_msgs.msg import PointCloud2, PointField, Image, CameraInfo
 from semantic_map_publisher.srv import *
+import sys
+import argparse
 from semantic_map.srv import *
 from octomap_msgs.msg import *
 from surface_based_object_learning.srv import *
@@ -23,20 +25,24 @@ from initial_surface_view_evaluation.msg import *
 from segmentation_srv_definitions.srv import * # vienna seg
 import PyKDL
 import actionlib
-from bham_seg_filter.srv import *
+from seg_filter.srv import *
 import cv2
 import image_geometry
 from cv_bridge import CvBridge, CvBridgeError
+
+
 class SegmentationWrapper():
-    def __init__(self):
+    def __init__(self,cam):
         rospy.loginfo("VIEW EVAL: getting segmentation srv")
-        self.segmentation_srv = rospy.ServiceProxy("/bham_filtered_segmentation/segment", bham_seg, 10)
+        self.segmentation_srv = rospy.ServiceProxy("/filtered_segmentation/segment", seg, 10)
         rospy.loginfo("VIEW EVAL: done")
         self.do_interest_filter = False
         self.interest_threshold = 20
         self.surf_filter = cv2.SURF(1000)
         self.camera_model = image_geometry.PinholeCameraModel()
-        self.camera_msg = self.get_camera_info_topic()
+        self.camera_msg = rospy.wait_for_message(cam,  CameraInfo, timeout=2)
+        rospy.loginfo("Got the following camera info:")
+        rospy.loginfo(self.camera_msg)
         self.camera_model.fromCameraInfo(self.camera_msg)
         self.bridge = CvBridge()
 
@@ -117,32 +123,17 @@ class SegmentationWrapper():
         rospy.loginfo("VIEW EVAL: done")
         return rgb
 
-    def get_camera_info_topic(self):
-        camera_msg = None
-        try:
-            camera_msg = rospy.wait_for_message("/head_xtion/depth_registered/sw_registered/camera_info",  CameraInfo, timeout=2)
-            return camera_msg
-        except Exception,e:
-            rospy.loginfo("LEARNING CORE: couldn't find /head_xtion/depth_registered/sw_registered/camera_info")
-
-        if(not camera_msg):
-            try:
-                camera_msg = rospy.wait_for_message("/head_xtion/depth_registered/camera_info",  CameraInfo, timeout=2)
-                rospy.loginfo("LEARNING CORE: found /head_xtion/depth_registered/camera_info")
-                return camera_msg
-            except Exception,e:
-                rospy.loginfo("LEARNING CORE: couldn't find /head_xtion/depth_registered/camera_info")
-
-        return None
-
 class InitialViewEvaluationCore():
-    def __init__(self):
+    def __init__(self,cam):
         rospy.init_node('initial_surface_view_evaluation_actionserver', anonymous = False)
         rospy.loginfo("VIEW EVAL: waiting for services")
         self.conv_octomap = rospy.ServiceProxy('/surface_based_object_learning/convert_pcd_to_octomap',ConvertCloudToOctomap)
         self.get_normals = rospy.ServiceProxy('/surface_based_object_learning/extract_normals_from_octomap',ExtractNormalsFromOctomap)
         self.get_obs = rospy.ServiceProxy('/semantic_map_publisher/SemanticMapPublisher/ObservationService',ObservationService)
         self.roi_srv = rospy.ServiceProxy('/check_point_set_in_soma_roi',PointSetInROI)
+        #self.gaze_srv = rospy.ServiceProxy('/surface_based_object_learning/gaze_at_map_point',GazeAtMapPoint)
+        self.gaze_srv = rospy.Service('/surface_based_object_learning/gaze_at_map_point',GazeAtMapPoint,self.gaze_cb)
+
         self.closest_roi_srv = rospy.ServiceProxy('/get_closest_roi_to_robot',GetROIClosestToRobot)
         #self.overlap_srv = rospy.ServiceProxy('/surface_based_object_learning/calculate_octree_overlap',CalculateOctreeOverlap)
         rospy.loginfo("VIEW EVAL: done")
@@ -158,13 +149,14 @@ class InitialViewEvaluationCore():
         self.max_z_cutoff = 1.7
         self.obs_resolution = 0.03
         self.initial_view_store = MessageStoreProxy(database="initial_surface_views", collection="logged_views")
-        self.segmentation = SegmentationWrapper()
+        self.segmentation = SegmentationWrapper(cam)
         self.transformation_store = TransformListener()
         rospy.sleep(5)
         self.action_server = actionlib.SimpleActionServer("/surface_based_object_learning/evaluate_surface", EvaluateSurfaceAction,
         execute_cb=self.do_task_cb, auto_start = False)
         self.action_server.start()
         rospy.loginfo("VIEW EVAL: action server set up")
+        rospy.loginfo("VIEW EVAL: done")
         rospy.spin()
 
 
@@ -252,6 +244,16 @@ class InitialViewEvaluationCore():
             rospy.logerr("PTU has been reset")
 
     # includes a bunch of sleeps just to make super extra sure we don't get any camera blur due to all the movement
+
+    def gaze_cb(self,point):
+        rospy.loginfo("Gazing at: " + str(point))
+        self.ptu_gazer_controller.reset_gaze()
+        rospy.sleep(2)
+        self.ptu_gazer_controller.look_at_map_point(point)
+        rospy.sleep(2)
+        result = GazeAtMapPointResponse(True)
+        return result
+
     def do_view_sweep_from_point(self,point):
 
         rospy.loginfo("VIEW EVAL: doing mini-sweep")
@@ -415,8 +417,15 @@ class InitialViewEvaluationCore():
                                          t.transform.translation.z))
 
 if __name__ == '__main__':
-    #rospy.init_node('sm_test', anonymous = False)
-    i = InitialViewEvaluationCore()
+    parser = argparse.ArgumentParser(prog='initial_view_core.py')
+    parser.add_argument('camera_info_topic', nargs=1, help="Camera Info Topic")
+
+    args = parser.parse_args(rospy.myargv(argv=sys.argv)[1:])
+
+    cam = str(vars(args)['camera_info_topic'][0])
+
+
+    i = InitialViewEvaluationCore(cam)
     #i.do_task("WayPoint1")
     #s = SegmentationWrapper()
     #cl = rospy.wait_for_message("/head_xtion/depth/points",PointCloud2,timeout=10.0)
